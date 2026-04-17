@@ -1,0 +1,13 @@
+.env
+credentials.json
+logs/
+__pycache__/
+*.pyc
+Task_chatbot_work.xlsx
+try.ipynb
+ngrok.exe
+ngrok
+app.py
+01_app.py
+02_app.py
+Earlier App

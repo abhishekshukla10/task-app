@@ -1,0 +1,7 @@
+flask
+twilio
+gspread
+google-auth
+groq
+python-dotenv
+gunicorn
