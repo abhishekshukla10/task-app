@@ -1,4 +1,6 @@
 import logging
+import json
+import os
 import datetime
 import gspread
 from google.oauth2.service_account import Credentials
@@ -14,15 +16,27 @@ SCOPES = [
 
 def get_sheet():
     """
-    Fresh connection every time — safe for Render's environment.
-    Returns the first sheet of your Google Sheet.
+    Reads credentials from ENV variable (works on Render)
+    Falls back to credentials.json (works locally)
     """
     try:
-        creds = Credentials.from_service_account_file(
-            'credentials.json', scopes=SCOPES
-        )
+        creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+
+        if creds_json:
+            # Running on Render — read from env variable
+            creds_dict = json.loads(creds_json)
+            creds = Credentials.from_service_account_info(
+                creds_dict, scopes=SCOPES
+            )
+        else:
+            # Running locally — read from file
+            creds = Credentials.from_service_account_file(
+                'credentials.json', scopes=SCOPES
+            )
+
         client = gspread.authorize(creds)
         return client.open(GOOGLE_SHEET_NAME).sheet1
+
     except FileNotFoundError:
         logger.error("credentials.json not found")
         raise
