@@ -42,9 +42,9 @@ def index():
 
 
 # Create tables if they don't exist
-with app.app_context():
-    db.create_all()
-    print("✓ Database tables created/verified")
+# with app.app_context():
+ #   db.create_all()
+  #  print("✓ Database tables created/verified")
 
 # Run the app
 if __name__ == '__main__':
