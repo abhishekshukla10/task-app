@@ -18,16 +18,19 @@
 
     <!-- Main Content -->
     <main class="content">
-        <!-- AI Briefing Card (will be populated by JS) -->
+        <!-- AI Briefing Card -->
         <div id="briefing-card" class="briefing" style="display: none;">
-            <p class="briefing-title">Good morning! Here's your day</p>
+            <p class="briefing-title" id="briefing-title">Good morning! Here's your day</p>
             <p class="briefing-text" id="briefing-text"></p>
         </div>
 
         <!-- Conversational Input Bar -->
         <div class="conv-bar">
-            <input type="text" class="conv-input" id="chat-input" placeholder="Ask or command anything..."
-                onkeypress="handleChatKeyPress(event)">
+            <input type="text" 
+                   class="conv-input" 
+                   id="chat-input" 
+                   placeholder="Ask or command anything..."
+                   onkeypress="handleChatKeyPress(event)">
             <button class="voice-btn" onclick="startVoice()" title="Voice input">🎤</button>
         </div>
 
@@ -43,10 +46,8 @@
             <div class="pill active" onclick="filterTasks('overdue')">Overdue (<span id="count-overdue">0</span>)</div>
             <div class="pill" onclick="filterTasks('today')">Today (<span id="count-today">0</span>)</div>
             <div class="pill" onclick="filterTasks('upcoming')">Upcoming (<span id="count-upcoming">0</span>)</div>
+            <div class="pill" onclick="filterTasks('done')">Done (<span id="count-done">0</span>)</div>
         </div>
-
-        <!-- Search (hidden by default, can enable later) -->
-        <input type="search" id="search-input" placeholder="Search tasks..." style="display: none;">
 
         <!-- Task Sections -->
         <div id="overdue-section" class="task-section">
@@ -62,6 +63,11 @@
         <div id="upcoming-section" class="task-section" style="display: none;">
             <div class="section-label">UPCOMING</div>
             <div id="upcoming-tasks" class="task-list"></div>
+        </div>
+
+        <div id="done-section" class="task-section" style="display: none;">
+            <div class="section-label">DONE</div>
+            <div id="done-tasks" class="task-list"></div>
         </div>
 
         <!-- Empty State -->
@@ -86,7 +92,7 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="edit-task-id">
-
+            
             <div class="form-group">
                 <label>Title *</label>
                 <input type="text" id="task-title" placeholder="What needs to be done?" required>
@@ -137,6 +143,8 @@
         <div class="modal-footer">
             <button class="btn btn-danger" id="delete-btn" onclick="deleteTask()" style="display: none;">Delete</button>
             <div>
+                <button class="btn" id="breakdown-btn" onclick="breakdownTask()" style="display: none;">🔨 Break Down</button>
+                <button class="btn" id="stuck-btn" onclick="getStuckHelp()" style="display: none;">💡 Get Help</button>
                 <button class="btn" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveTask()">Save</button>
             </div>
