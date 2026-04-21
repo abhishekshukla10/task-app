@@ -293,9 +293,105 @@ async function sendChat() {
     }
 }
 
-// Voice input (placeholder for now)
+// Voice input using Web Speech API
+let recognition = null;
+let isListening = false;
+let currentLang = 'en-IN';  // Default: Indian English
+
+function toggleVoiceLanguage() {
+    const langBtn = document.querySelector('.conv-bar button[onclick="toggleVoiceLanguage()"]');
+    
+    if (currentLang === 'en-IN') {
+        currentLang = 'hi-IN';  // Switch to Hindi
+        langBtn.textContent = '🇮🇳 HI';
+        showToast('Voice language: Hindi');
+    } else {
+        currentLang = 'en-IN';  // Switch to English
+        langBtn.textContent = '🇮🇳 EN';
+        showToast('Voice language: English');
+    }
+    
+    // Reset recognition with new language
+    if (recognition) {
+        recognition.lang = currentLang;
+    }
+}
+
 function startVoice() {
-    showToast('Voice input coming soon! Use text for now.');
+    // Check browser support
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        showToast('Voice input not supported in this browser. Use Chrome/Edge.');
+        return;
+    }
+    
+    // Initialize recognition
+    if (!recognition) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.lang = currentLang;
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        
+        recognition.onstart = () => {
+            isListening = true;
+            document.querySelector('.voice-btn[onclick="startVoice()"]').style.background = '#E24B4A';
+            document.querySelector('.voice-btn[onclick="startVoice()"]').textContent = '🔴';
+            showToast('Listening... Speak now');
+        };
+        
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            document.getElementById('chat-input').value = transcript;
+            showToast(`Heard: "${transcript}"`);
+            
+            // Auto-send after 1 second
+            setTimeout(() => {
+                sendChat();
+            }, 1000);
+        };
+        
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            if (event.error === 'no-speech') {
+                showToast('No speech detected. Try again.');
+            } else if (event.error === 'not-allowed') {
+                showToast('Microphone access denied. Enable in browser settings.');
+            } else {
+                showToast('Voice input error. Try again.');
+            }
+            resetVoiceButton();
+        };
+        
+        recognition.onend = () => {
+            resetVoiceButton();
+        };
+    }
+    
+    // Update language before starting
+    recognition.lang = currentLang;
+    
+    // Toggle listening
+    if (isListening) {
+        recognition.stop();
+        resetVoiceButton();
+    } else {
+        try {
+            recognition.start();
+        } catch (error) {
+            console.error('Error starting recognition:', error);
+            showToast('Could not start voice input');
+            resetVoiceButton();
+        }
+    }
+}
+
+function resetVoiceButton() {
+    isListening = false;
+    const voiceBtn = document.querySelector('.voice-btn[onclick="startVoice()"]');
+    if (voiceBtn) {
+        voiceBtn.style.background = '#E6F1FB';
+        voiceBtn.textContent = '🎤';
+    }
 }
 
 // Modal functions
