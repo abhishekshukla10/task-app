@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - My Tasks{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1 class="logo">My Tasks</h1>
+            <span class="user-email">{{ user.email }}</span>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-primary" onclick="openAddModal()">+ Add Task</button>
+            <a href="{{ url_for('auth.logout') }}" class="btn">Logout</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="content">
+        <!-- AI Briefing Card (will be populated by JS) -->
+        <div id="briefing-card" class="briefing" style="display: none;">
+            <p class="briefing-title">Good morning! Here's your day</p>
+            <p class="briefing-text" id="briefing-text"></p>
+        </div>
+
+        <!-- Conversational Input Bar -->
+        <div class="conv-bar">
+            <input type="text" class="conv-input" id="chat-input" placeholder="Ask or command anything..."
+                onkeypress="handleChatKeyPress(event)">
+            <button class="voice-btn" onclick="startVoice()" title="Voice input">🎤</button>
+        </div>
+
+        <!-- Example Chips -->
+        <div class="example-chips">
+            <span class="chip" onclick="setChat('what\'s overdue?')">what's overdue?</span>
+            <span class="chip" onclick="setChat('mark task 2 done')">mark task 2 done</span>
+            <span class="chip" onclick="setChat('call amish tomorrow 3pm')">call amish tomorrow 3pm</span>
+        </div>
+
+        <!-- Jump Navigation Pills -->
+        <div class="pills">
+            <div class="pill active" onclick="filterTasks('overdue')">Overdue (<span id="count-overdue">0</span>)</div>
+            <div class="pill" onclick="filterTasks('today')">Today (<span id="count-today">0</span>)</div>
+            <div class="pill" onclick="filterTasks('upcoming')">Upcoming (<span id="count-upcoming">0</span>)</div>
+        </div>
+
+        <!-- Search (hidden by default, can enable later) -->
+        <input type="search" id="search-input" placeholder="Search tasks..." style="display: none;">
+
+        <!-- Task Sections -->
+        <div id="overdue-section" class="task-section">
+            <div class="section-label">OVERDUE</div>
+            <div id="overdue-tasks" class="task-list"></div>
+        </div>
+
+        <div id="today-section" class="task-section" style="display: none;">
+            <div class="section-label">TODAY</div>
+            <div id="today-tasks" class="task-list"></div>
+        </div>
+
+        <div id="upcoming-section" class="task-section" style="display: none;">
+            <div class="section-label">UPCOMING</div>
+            <div id="upcoming-tasks" class="task-list"></div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="empty-state" class="empty-state" style="display: none;">
+            <p>No tasks yet. Try: "Submit fees by Friday" or "Call Amish tomorrow 3pm"</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <span id="footer-text">Loading tasks...</span>
+    </footer>
+</div>
+
+<!-- Add/Edit Task Modal -->
+<div id="task-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modal-title">Add Task</h2>
+            <button class="close-btn" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="edit-task-id">
+
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" id="task-title" placeholder="What needs to be done?" required>
+            </div>
+
+            <div class="form-group">
+                <label>Status</label>
+                <select id="task-status">
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Complete">Complete</option>
+                    <option value="Dropped">Dropped</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Due Date *</label>
+                <input type="date" id="task-due-date" required>
+            </div>
+
+            <div class="form-group">
+                <label>Remind Me</label>
+                <input type="datetime-local" id="task-reminder">
+            </div>
+
+            <div class="form-group">
+                <label>Repeat</label>
+                <select id="task-repeat">
+                    <option value="">Does not repeat</option>
+                    <option value="Daily">Daily</option>
+                    <option value="Weekly">Weekly</option>
+                    <option value="Monthly">Monthly</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="task-priority">
+                    Mark as Important
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="task-remarks" rows="3" placeholder="Add any details..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-danger" id="delete-btn" onclick="deleteTask()" style="display: none;">Delete</button>
+            <div>
+                <button class="btn" onclick="closeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveTask()">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast for notifications -->
+<div id="toast" class="toast"></div>
+
+{% endblock %}
