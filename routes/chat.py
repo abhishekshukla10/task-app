@@ -109,6 +109,7 @@ def chat():
     """Handle conversational input"""
     data = request.get_json()
     user_message = data.get('message', '').strip()
+    current_filter = data.get('current_filter', 'overdue')  # Get current filter context
 
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
@@ -143,8 +144,35 @@ def chat():
         task_num = extract_task_number(user_message)
         
         if task_num:
-            # Get user's tasks ordered by created_at (same as display)
-            tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
+            # Get tasks based on current filter (what user is viewing)
+            today = datetime.utcnow().date()
+            
+            if current_filter == 'overdue':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Pending', 'In Progress']),
+                    Task.due_date < today
+                ).order_by(Task.created_at.desc()).all()
+            elif current_filter == 'today':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Pending', 'In Progress']),
+                    Task.due_date == today
+                ).order_by(Task.created_at.desc()).all()
+            elif current_filter == 'upcoming':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Pending', 'In Progress']),
+                    db.or_(Task.due_date > today, Task.due_date == None)
+                ).order_by(Task.created_at.desc()).all()
+            elif current_filter == 'done':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Complete', 'Dropped'])
+                ).order_by(Task.created_at.desc()).all()
+            else:
+                # Fallback: all tasks
+                tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
             
             if task_num > 0 and task_num <= len(tasks):
                 task = tasks[task_num - 1]
@@ -159,7 +187,7 @@ def chat():
             else:
                 return jsonify({
                     'type': 'error',
-                    'message': f'Task {task_num} not found. You have {len(tasks)} tasks.'
+                    'message': f'Task {task_num} not found in {current_filter} view. There are {len(tasks)} tasks.'
                 })
         else:
             return jsonify({
@@ -173,8 +201,35 @@ def chat():
         task_num = extract_task_number(user_message)
         
         if task_num:
-            # Get user's tasks ordered by created_at (same as display)
-            tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
+            # Get tasks based on current filter (what user is viewing)
+            today = datetime.utcnow().date()
+            
+            if current_filter == 'overdue':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Pending', 'In Progress']),
+                    Task.due_date < today
+                ).order_by(Task.created_at.desc()).all()
+            elif current_filter == 'today':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Pending', 'In Progress']),
+                    Task.due_date == today
+                ).order_by(Task.created_at.desc()).all()
+            elif current_filter == 'upcoming':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Pending', 'In Progress']),
+                    db.or_(Task.due_date > today, Task.due_date == None)
+                ).order_by(Task.created_at.desc()).all()
+            elif current_filter == 'done':
+                tasks = Task.query.filter(
+                    Task.user_id == current_user.id,
+                    Task.status.in_(['Complete', 'Dropped'])
+                ).order_by(Task.created_at.desc()).all()
+            else:
+                # Fallback: all tasks
+                tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
             
             if task_num > 0 and task_num <= len(tasks):
                 task = tasks[task_num - 1]
@@ -189,7 +244,7 @@ def chat():
             else:
                 return jsonify({
                     'type': 'error',
-                    'message': f'Task {task_num} not found. You have {len(tasks)} tasks.'
+                    'message': f'Task {task_num} not found in {current_filter} view. There are {len(tasks)} tasks.'
                 })
         else:
             return jsonify({
