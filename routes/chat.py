@@ -21,10 +21,14 @@ def parse_with_groq(user_message):
 
 Rules:
 - Extract: title, due_date, priority, status, repeat
-- Due date formats: "tomorrow", "next monday", "25th april", "in 3 days"
+- Due date logic:
+  * If explicit date mentioned ("tomorrow", "friday") → use that date
+  * If task contains "urgent", "ASAP", "important", or "call" → due_date = tomorrow
+  * Otherwise → due_date = 2 days from now
 - Priority: true if "important", "urgent", "asap", "critical"
-- Status: "Pending" (default), "In Progress", "Completed"
-- Repeat: "Daily", "Weekly", "Monthly" or null
+- Status: "Pending" (default)
+
+Current date: {today's date in YYYY-MM-DD format}
 
 Output ONLY valid JSON, no explanations:
 {
@@ -36,8 +40,8 @@ Output ONLY valid JSON, no explanations:
 }
 
 Examples:
-"call amish tomorrow 3pm urgent" → {"title": "Call Amish at 3pm", "due_date": "2026-04-21", "priority": true, "status": "Pending", "repeat": null}
-"submit fees by friday" → {"title": "Submit fees", "due_date": "2026-04-25", "priority": false, "status": "Pending", "repeat": null}
+"call amish" → {{"title": "Call Amish", "due_date": "{(today + timedelta(days=1)).isoformat()}", "priority": false, "status": "Pending", "repeat": null}}
+"buy groceries" → {{"title": "Buy groceries", "due_date": "{(today + timedelta(days=2)).isoformat()}", "priority": false, "status": "Pending", "repeat": null}}
 """
 
     try:
