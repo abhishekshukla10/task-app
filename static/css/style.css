@@ -702,12 +702,30 @@ textarea {
         padding: 10px 14px;
     }
     
-    /* Mobile pill text */
-    .pill-short {
-        display: inline;
+    /* Mobile filter pills - flexible to fill width */
+    .pills {
+        gap: 5px;
+        justify-content: space-between;  /* Spread pills evenly */
     }
     
-    .pill-full {
-        display: none;
+    .pill {
+        flex: 1;  /* Each pill takes equal width */
+        padding: 5px 4px;
+        font-size: 11px;
+        text-align: center;  /* Center text in each pill */
+        min-width: 0;  /* Allow pills to shrink if needed */
+    }
+    
+    .pill-count {
+        font-size: 10px;
+    }
+    
+    /* Mobile pill text - hide full, show short */
+    .pill .pill-short {
+        display: inline !important;
+    }
+    
+    .pill .pill-full {
+        display: none !important;
     }
 }
