@@ -692,15 +692,15 @@ textarea {
     
     /* Mobile filter pills - flexible to fill width */
     .pills {
-        gap: 5px;
-        justify-content: space-between;  /* Spread pills evenly */
+        gap: 3px;  /* Tight gap to maximize pill width */
     }
     
     .pill {
         flex: 1;  /* Each pill takes equal width */
-        padding: 5px 4px;
-        font-size: 11px;
+        padding: 6px 1px;  /* Minimal horizontal padding */
+        font-size: 10px;  /* Reduced to fit "Upcoming (10)" */
         text-align: center;  /* Center text in each pill */
         min-width: 0;  /* Allow pills to shrink if needed */
+        white-space: nowrap;  /* Prevent text wrapping */
     }
 }
