@@ -53,15 +53,8 @@ body {
 }
 
 @keyframes slideIn {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
 /* Auth Page */
@@ -76,7 +69,7 @@ body {
 .auth-card {
     background: #FFFFFF;
     border-radius: 12px;
-    border: 0.5px solid rgba(0, 0, 0, 0.15);
+    border: 0.5px solid rgba(0,0,0,0.15);
     padding: 2rem;
     width: 100%;
     max-width: 400px;
@@ -100,7 +93,7 @@ body {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 1.5rem;
-    border-bottom: 0.5px solid rgba(0, 0, 0, 0.15);
+    border-bottom: 0.5px solid rgba(0,0,0,0.15);
 }
 
 .auth-tab {
@@ -155,7 +148,7 @@ select,
 textarea {
     padding: 10px 12px;
     border-radius: 8px;
-    border: 0.5px solid rgba(0, 0, 0, 0.3);
+    border: 0.5px solid rgba(0,0,0,0.3);
     font-size: 14px;
     font-family: inherit;
     background: #FFFFFF;
@@ -193,7 +186,7 @@ textarea {
 .btn {
     padding: 10px 20px;
     border-radius: 8px;
-    border: 0.5px solid rgba(0, 0, 0, 0.3);
+    border: 0.5px solid rgba(0,0,0,0.3);
     background: transparent;
     font-size: 14px;
     font-weight: 500;
@@ -239,7 +232,7 @@ textarea {
 
 .header {
     padding: 1rem 1.5rem;
-    border-bottom: 0.5px solid rgba(0, 0, 0, 0.15);
+    border-bottom: 0.5px solid rgba(0,0,0,0.15);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -299,31 +292,38 @@ textarea {
     color: #5F5E5A;
 }
 
-/* Conversational Input Bar */
-
 /* Conversational Input Section */
 .conv-section {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
+    width: 100%;
 }
 
-/* Language Pills */
+/* Language Pills + Voice Button Row */
 .lang-pills {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    width: 100%;
+}
+
+.lang-pills-left {
+    display: flex;
+    align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
 }
 
 .lang-label {
     font-size: 12px;
     color: #888780;
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .lang-pill {
     padding: 6px 16px;
     border-radius: 20px;
-    border: 1px solid rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(0,0,0,0.2);
     background: #FFFFFF;
     font-size: 13px;
     font-weight: 600;
@@ -334,7 +334,7 @@ textarea {
 
 .lang-pill:hover {
     background: #F1EFE8;
-    border-color: rgba(0, 0, 0, 0.3);
+    border-color: rgba(0,0,0,0.3);
 }
 
 .lang-pill.active {
@@ -343,53 +343,19 @@ textarea {
     color: #0C447C;
 }
 
-/* Input Bar */
-.conv-bar {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
-.conv-input {
-    flex: 1;
-    padding: 12px 16px;
-    border-radius: 12px;
-    border: 0.5px solid rgba(0, 0, 0, 0.3);
-    font-size: 15px;
-    background: #FFFFFF;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.conv-input:focus {
-    outline: none;
-    border-color: #378ADD;
-    box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.1);
-}
-
-.conv-input::placeholder {
-    color: #888780;
-    font-size: 13px;
-    opacity: 0.8;
-}
-
-.conv-input:focus::placeholder {
-    opacity: 0.5;
-}
-
 /* Voice Button */
 .voice-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 12px;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
     background: #E6F1FB;
     border: none;
-    font-size: 14px;
-    font-weight: 500;
     cursor: pointer;
     transition: background 0.2s;
-    color: #0C447C;
+    flex-shrink: 0;
 }
 
 .voice-btn:hover {
@@ -397,67 +363,42 @@ textarea {
 }
 
 .voice-icon {
-    font-size: 18px;
+    font-size: 20px;
 }
 
-.voice-label {
-    display: inline;
+/* Input Bar (direct child of conv-section) */
+.conv-section .conv-input {
+    width: 100%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 0.5px solid rgba(0,0,0,0.3);
+    font-size: 15px;
+    background: #FFFFFF;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Mobile Responsive */
-@media (max-width: 480px) {
-    .conv-section {
-        margin-bottom: 1rem;
-    }
+.conv-section .conv-input:focus {
+    outline: none;
+    border-color: #378ADD;
+    box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.1);
+}
 
-    .lang-pills {
-        margin-bottom: 10px;
-    }
+.conv-section .conv-input::placeholder {
+    color: #888780;
+    font-size: 13px;
+    opacity: 0.8;
+}
 
-    .lang-label {
-        font-size: 11px;
-    }
-
-    .lang-pill {
-        padding: 6px 14px;
-        font-size: 12px;
-    }
-
-    .conv-bar {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .conv-input {
-        flex: 1 1 100%;
-        order: 1;
-        font-size: 14px;
-        padding: 12px 14px;
-    }
-
-    .conv-input::placeholder {
-        font-size: 12px;
-    }
-
-    .voice-btn {
-        flex: 1 1 100%;
-        order: 2;
-        justify-content: center;
-        padding: 12px 16px;
-        height: 44px;
-    }
-
-    .voice-label {
-        display: inline;
-    }
+.conv-section .conv-input:focus::placeholder {
+    opacity: 0.5;
 }
 
 /* Jump Pills */
 .pills {
     display: flex;
-    gap: 8px;
+    gap: 12px;
     margin-bottom: 1rem;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .pill {
@@ -468,7 +409,6 @@ textarea {
     background: #F1EFE8;
     cursor: pointer;
     transition: all 0.2s;
-    white-space: nowrap;
 }
 
 .pill:hover {
@@ -480,7 +420,7 @@ textarea {
     color: #0C447C;
 }
 
-/* Show full text on desktop, hide short */
+/* Mobile pill text */
 .pill-short {
     display: none;
 }
@@ -489,23 +429,8 @@ textarea {
     display: inline;
 }
 
-/* Switch on mobile */
-@media (max-width: 480px) {
-    .pill {
-        padding: 5px 8px;
-        font-size: 12px;
-        gap: 4px;
-    }
-
-    .pill-short {
-        display: inline;
-        /* Show short */
-    }
-
-    .pill-full {
-        display: none;
-        /* Hide full */
-    }
+.pill-count {
+    display: inline;
 }
 
 /* Task Sections */
@@ -532,7 +457,7 @@ textarea {
 .task {
     padding: 12px 16px;
     border-radius: 8px;
-    border: 0.5px solid rgba(0, 0, 0, 0.15);
+    border: 0.5px solid rgba(0,0,0,0.15);
     cursor: pointer;
     transition: background 0.2s;
 }
@@ -606,7 +531,7 @@ textarea {
 /* Footer */
 .footer {
     padding: 1rem 1.5rem;
-    border-top: 0.5px solid rgba(0, 0, 0, 0.15);
+    border-top: 0.5px solid rgba(0,0,0,0.15);
     font-size: 13px;
     color: #B4B2A9;
     text-align: center;
@@ -637,7 +562,7 @@ textarea {
 .modal-content {
     background: #FFFFFF;
     border-radius: 12px;
-    border: 0.5px solid rgba(0, 0, 0, 0.15);
+    border: 0.5px solid rgba(0,0,0,0.15);
     max-width: 500px;
     width: 90%;
     max-height: 90vh;
@@ -648,7 +573,7 @@ textarea {
 
 .modal-header {
     padding: 16px 20px;
-    border-bottom: 0.5px solid rgba(0, 0, 0, 0.15);
+    border-bottom: 0.5px solid rgba(0,0,0,0.15);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -678,13 +603,13 @@ textarea {
 
 .modal-footer {
     padding: 16px 20px;
-    border-top: 0.5px solid rgba(0, 0, 0, 0.15);
+    border-top: 0.5px solid rgba(0,0,0,0.15);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.modal-footer>div {
+.modal-footer > div {
     display: flex;
     gap: 12px;
 }
@@ -716,39 +641,15 @@ textarea {
     .header-left {
         gap: 1rem;
     }
-
+    
     .user-email {
         display: none;
     }
-
+    
     .content {
         padding: 1rem;
     }
-
-    .conv-bar {
-        gap: 8px;
-    }
-
-    .conv-input {
-        font-size: 14px;
-        padding: 10px 12px;
-    }
-
-    .voice-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 16px;
-    }
-
-    .example-chips {
-        gap: 6px;
-    }
-
-    .chip {
-        font-size: 12px;
-        padding: 5px 10px;
-    }
-
+    
     .task-meta {
         padding-left: 28px;
         font-size: 12px;
@@ -759,13 +660,54 @@ textarea {
     .header {
         padding: 0.75rem 1rem;
     }
-
+    
     .logo {
         font-size: 16px;
     }
-
+    
     .btn {
         padding: 8px 14px;
         font-size: 13px;
+    }
+    
+    /* Conversational section mobile */
+    .conv-section {
+        margin-bottom: 1rem;
+    }
+    
+    .lang-pills {
+        margin-bottom: 10px;
+    }
+    
+    .lang-label {
+        font-size: 11px;
+    }
+    
+    .lang-pill {
+        padding: 5px 12px;
+        font-size: 12px;
+    }
+    
+    .voice-btn {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .voice-icon {
+        font-size: 18px;
+    }
+    
+    .conv-section .conv-input {
+        font-size: 14px;
+        padding: 10px 14px;
+    }
+    
+    /* Mobile pill text */
+    .pill-short {
+        display: inline;
+    }
+    
+    .pill-full {
+        display: none;
     }
 }

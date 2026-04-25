@@ -1,6 +1,8 @@
 // Global state
 let allTasks = [];
 let currentFilter = 'overdue';
+let recognition = null;
+let isListening = false;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
@@ -279,15 +281,13 @@ async function sendChat() {
         const data = await response.json();
 
         if (data.type === 'task_created') {
-            showToast(data.message);
+            showToast('✓ Task created: ' + data.task.title);
             loadTasks();
         } else if (data.type === 'task_updated') {
-            showToast(data.message);
+            showToast('✓ ' + data.message);
             loadTasks();
-            loadSmartBriefing();  // Refresh briefing
-        } else if (data.type === 'error') {
-            showToast(data.message);
-        } else if (data.type === 'info') {
+        } else if (data.type === 'filter') {
+            filterTasks(data.filter);
             showToast(data.message);
         } else if (data.message) {
             showToast(data.message);
@@ -297,17 +297,6 @@ async function sendChat() {
         showToast('Failed to process command');
     }
 }
-
-// Voice input using Web Speech API
-let recognition = null;
-let isListening = false;
-let currentLang = 'en-IN';  // Default: Indian English
-
-
-
-
-
-
 
 // Modal functions
 function openAddModal() {

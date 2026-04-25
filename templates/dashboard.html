@@ -24,34 +24,29 @@
             <p class="briefing-text" id="briefing-text"></p>
         </div>
 
-        <!-- Conversational Input Bar -->
-
-
-        <div class="conv-bar">
-            <!-- Language Pills -->
+        <!-- Conversational Input Section -->
+        <div class="conv-section">
+            <!-- Language Pills + Voice Button -->
             <div class="lang-pills">
-                <span class="lang-label">Voice language:</span>
-                <button class="lang-pill active" id="lang-en" onclick="selectLanguage('en')">EN</button>
-                <button class="lang-pill" id="lang-hi" onclick="selectLanguage('hi')">HI</button>
-            </div>
-
-            <!-- Input Bar -->
-            <div class="conv-bar">
-                <input type="text" class="conv-input" id="chat-input"
-                    placeholder="'mark task 2 done' or 'buy milk tomorrow'" onkeypress="handleChatKeyPress(event)">
+                <div class="lang-pills-left">
+                    <span class="lang-label">Voice language:</span>
+                    <button class="lang-pill active" id="lang-en" onclick="selectLanguage('en')">EN</button>
+                    <button class="lang-pill" id="lang-hi" onclick="selectLanguage('hi')">HI</button>
+                </div>
                 <button class="voice-btn" onclick="startVoice()" title="Voice input">
                     <span class="voice-icon">🎤</span>
-                    <span class="voice-label">Speak</span>
                 </button>
             </div>
+            
+            <!-- Input Bar -->
+            <input type="text" 
+                   class="conv-input" 
+                   id="chat-input" 
+                   placeholder="'mark task 2 done' or 'buy milk tomorrow'"
+                   onkeypress="handleChatKeyPress(event)">
         </div>
 
-        <!-- Example Chips -->
-
-
         <!-- Jump Navigation Pills -->
-
-
         <div class="pills">
             <div class="pill active" onclick="filterTasks('overdue')">
                 <span class="pill-short">Over</span>
@@ -73,7 +68,6 @@
                 <span class="pill-full">Done</span>
                 <span class="pill-count">(<span id="count-done">0</span>)</span>
             </div>
-
         </div>
 
         <!-- Task Sections -->
@@ -119,7 +113,7 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="edit-task-id">
-
+            
             <div class="form-group">
                 <label>Title *</label>
                 <input type="text" id="task-title" placeholder="What needs to be done?" required>
@@ -170,8 +164,7 @@
         <div class="modal-footer">
             <button class="btn btn-danger" id="delete-btn" onclick="deleteTask()" style="display: none;">Delete</button>
             <div>
-                <button class="btn" id="breakdown-btn" onclick="breakdownTask()" style="display: none;">🔨 Break
-                    Down</button>
+                <button class="btn" id="breakdown-btn" onclick="breakdownTask()" style="display: none;">🔨 Break Down</button>
                 <button class="btn" id="stuck-btn" onclick="getStuckHelp()" style="display: none;">💡 Get Help</button>
                 <button class="btn" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveTask()">Save</button>
