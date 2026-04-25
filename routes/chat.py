@@ -40,7 +40,7 @@ Output ONLY valid JSON, no explanations:
 }
 
 Examples:
-"call amish" → {{"title": "Call Amish", "due_date": "{(today + timedelta(days=1)).isoformat()}", "priority": false, "status": "Pending", "repeat": null}}
+"call sachin" → {{"title": "Call Sachin", "due_date": "{(today + timedelta(days=1)).isoformat()}", "priority": false, "status": "Pending", "repeat": null}}
 "buy groceries" → {{"title": "Buy groceries", "due_date": "{(today + timedelta(days=2)).isoformat()}", "priority": false, "status": "Pending", "repeat": null}}
 """
 
@@ -99,45 +99,127 @@ def chat():
 
     lower_msg = user_message.lower()
 
-    # Priority 1: View/Filter commands (check FIRST)
-    view_keywords = ['show', 'list', 'what', 'whats', 'view', 'see', 'display']
-    if any(word in lower_msg for word in view_keywords):
-        if 'overdue' in lower_msg:
-            return jsonify({
-                'type': 'filter',
-                'filter': 'overdue',
-                'message': 'Showing overdue tasks'
-            })
-        elif 'today' in lower_msg:
-            return jsonify({
-                'type': 'filter',
-                'filter': 'today',
-                'message': 'Showing today\'s tasks'
-            })
-        elif any(word in lower_msg for word in ['upcoming', 'future', 'later', 'next']):
-            return jsonify({
-                'type': 'filter',
-                'filter': 'upcoming',
-                'message': 'Showing upcoming tasks'
-            })
+    import re
 
-    # Priority 2: Status update commands
-    action_keywords = ['mark', 'complete', 'done', 'finish', 'set']
+    # ============================================
+    # Priority 1: Drop task commands
+    # ============================================
+
+    drop_keywords = ['drop', 'cancel', 'abandon', 'skip']
+
+    if any(word in lower_msg for word in drop_keywords):
+        patterns = [
+            r'task\s+(\d+)',
+            r'drop\s+(\d+)',
+            r'cancel\s+(\d+)',
+            r'skip\s+(\d+)',
+        ]
+
+        task_number = None
+        for pattern in patterns:
+            match = re.search(pattern, lower_msg)
+            if match:
+                task_number = int(match.group(1))
+                break
+
+        if task_number:
+            tasks = Task.query.filter_by(user_id=current_user.id).order_by(
+                Task.created_at.desc()).all()
+
+            if 1 <= task_number <= len(tasks):
+                task = tasks[task_number - 1]
+                task.status = 'Dropped'
+                task.updated_at = datetime.utcnow()
+
+                try:
+                    db.session.commit()
+                    return jsonify({
+                        'type': 'task_updated',
+                        'task': task.to_dict(),
+                        'message': f'⛔ Dropped: {task.title}'
+                    }), 200
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"Error dropping task: {e}")
+                    return jsonify({'type': 'error', 'message': 'Failed to drop task'}), 500
+            else:
+                return jsonify({
+                    'type': 'error',
+                    'message': f'Task {task_number} not found. You have {len(tasks)} tasks.'
+                }), 400
+        else:
+            return jsonify({
+                'type': 'info',
+                'message': 'Which task? Try: "drop task 2"'
+            }), 400
+
+    # ============================================
+    # Priority 2: Complete task commands
+    # ============================================
+
+    action_keywords = ['mark', 'complete', 'done',
+                       'finish', 'set', 'close', 'tick', 'check', 'did']
+
     if any(word in lower_msg for word in action_keywords):
-        return jsonify({
-            'type': 'info',
-            'message': 'Status update commands coming soon! Use the task cards to update for now.'
-        })
+        patterns = [
+            r'task\s+(\d+)',
+            r'mark\s+(\d+)',
+            r'complete\s+(\d+)',
+            r'finish\s+(\d+)',
+            r'close\s+(\d+)',
+            r'tick\s+(\d+)',
+            r'check\s+(\d+)',
+            r'did\s+(\d+)',
+        ]
 
-    # Priority 3: Task creation (DEFAULT)
-    # If message doesn't match above patterns, assume it's a new task
+        task_number = None
+        for pattern in patterns:
+            match = re.search(pattern, lower_msg)
+            if match:
+                task_number = int(match.group(1))
+                break
+
+        if task_number:
+            tasks = Task.query.filter_by(user_id=current_user.id).order_by(
+                Task.created_at.desc()).all()
+
+            if 1 <= task_number <= len(tasks):
+                task = tasks[task_number - 1]
+                task.status = 'Complete'
+                task.updated_at = datetime.utcnow()
+
+                try:
+                    db.session.commit()
+                    return jsonify({
+                        'type': 'task_updated',
+                        'task': task.to_dict(),
+                        'message': f'✓ Marked as complete: {task.title}'
+                    }), 200
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"Error updating task: {e}")
+                    return jsonify({'type': 'error', 'message': 'Failed to update task'}), 500
+            else:
+                return jsonify({
+                    'type': 'error',
+                    'message': f'Task {task_number} not found. You have {len(tasks)} tasks.'
+                }), 400
+        else:
+            return jsonify({
+                'type': 'info',
+                'message': 'Which task? Try: "mark task 2 done"'
+            }), 400
+
+    # ============================================
+    # Priority 3: Task creation via LLM
+    # ============================================
+
     parsed = parse_with_groq(user_message)
 
     if not parsed:
-        # Groq failed, create basic task from message
         return jsonify({
             'type': 'info',
-            'message': 'I couldn\'t parse that perfectly. Try: "call amish tomorrow 3pm" or use + Add Task button'
+            'message': 'I couldn\'t parse that. Try: "call Sachin tomorrow 3pm" or "mark task 2 done"'
         }), 400
 
     # Create task from parsed data
@@ -150,7 +232,6 @@ def chat():
             repeat=parsed.get('repeat')
         )
 
-        # Parse due date
         if parsed.get('due_date'):
             try:
                 task.due_date = datetime.fromisoformat(
@@ -170,7 +251,4 @@ def chat():
     except Exception as e:
         db.session.rollback()
         print(f"Error creating task from chat: {e}")
-        return jsonify({
-            'type': 'error',
-            'message': 'Failed to create task'
-        }), 500
+        return jsonify({'type': 'error', 'message': 'Failed to create task'}), 500

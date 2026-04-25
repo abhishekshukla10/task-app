@@ -26,21 +26,16 @@
 
         <!-- Conversational Input Bar -->
         <div class="conv-bar">
-            <input type="text" 
-                   class="conv-input" 
-                   id="chat-input" 
-                   placeholder="Ask or command anything..."
-                   onkeypress="handleChatKeyPress(event)">
-            <button class="voice-btn" onclick="toggleVoiceLanguage()" title="Switch language" style="font-size: 12px; width: 50px;">🇮🇳 EN</button>
+            <input type="text" class="conv-input" id="chat-input"
+                placeholder="Try: 'buy milk tomorrow' or 'mark task 2 done' or 'drop task 3'"
+                onkeypress="handleChatKeyPress(event)">
+            <button class="voice-btn" onclick="toggleVoiceLanguage()" title="Switch language"
+                style="font-size: 12px; width: 50px;">🇮🇳 EN</button>
             <button class="voice-btn" onclick="startVoice()" title="Voice input">🎤</button>
         </div>
 
         <!-- Example Chips -->
-        <div class="example-chips">
-            <span class="chip" onclick="setChat('what\'s overdue?')">what's overdue?</span>
-            <span class="chip" onclick="setChat('mark task 2 done')">mark task 2 done</span>
-            <span class="chip" onclick="setChat('call amish tomorrow 3pm')">call amish tomorrow 3pm</span>
-        </div>
+
 
         <!-- Jump Navigation Pills -->
         <div class="pills">
@@ -93,7 +88,7 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="edit-task-id">
-            
+
             <div class="form-group">
                 <label>Title *</label>
                 <input type="text" id="task-title" placeholder="What needs to be done?" required>
@@ -144,7 +139,8 @@
         <div class="modal-footer">
             <button class="btn btn-danger" id="delete-btn" onclick="deleteTask()" style="display: none;">Delete</button>
             <div>
-                <button class="btn" id="breakdown-btn" onclick="breakdownTask()" style="display: none;">🔨 Break Down</button>
+                <button class="btn" id="breakdown-btn" onclick="breakdownTask()" style="display: none;">🔨 Break
+                    Down</button>
                 <button class="btn" id="stuck-btn" onclick="getStuckHelp()" style="display: none;">💡 Get Help</button>
                 <button class="btn" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveTask()">Save</button>
