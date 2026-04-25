@@ -420,18 +420,6 @@ textarea {
     color: #0C447C;
 }
 
-/* Mobile pill text */
-.pill-short {
-    display: none;
-}
-
-.pill-full {
-    display: inline;
-}
-
-.pill-count {
-    display: inline;
-}
 
 /* Task Sections */
 .task-section {
@@ -714,18 +702,5 @@ textarea {
         font-size: 11px;
         text-align: center;  /* Center text in each pill */
         min-width: 0;  /* Allow pills to shrink if needed */
-    }
-    
-    .pill-count {
-        font-size: 10px;
-    }
-    
-    /* Mobile pill text - hide full, show short */
-    .pill .pill-short {
-        display: inline !important;
-    }
-    
-    .pill .pill-full {
-        display: none !important;
     }
 }

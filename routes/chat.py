@@ -5,6 +5,7 @@ import os
 import json
 from datetime import datetime, timedelta
 import requests
+import re
 
 chat_bp = Blueprint('chat', __name__)
 
@@ -21,14 +22,10 @@ def parse_with_groq(user_message):
 
 Rules:
 - Extract: title, due_date, priority, status, repeat
-- Due date logic:
-  * If explicit date mentioned ("tomorrow", "friday") → use that date
-  * If task contains "urgent", "ASAP", "important", or "call" → due_date = tomorrow
-  * Otherwise → due_date = 2 days from now
+- Due date formats: "tomorrow", "next monday", "25th april", "in 3 days"
 - Priority: true if "important", "urgent", "asap", "critical"
-- Status: "Pending" (default)
-
-Current date: {today's date in YYYY-MM-DD format}
+- Status: "Pending" (default), "In Progress", "Completed"
+- Repeat: "Daily", "Weekly", "Monthly" or null
 
 Output ONLY valid JSON, no explanations:
 {
@@ -40,8 +37,8 @@ Output ONLY valid JSON, no explanations:
 }
 
 Examples:
-"call sachin" → {{"title": "Call Sachin", "due_date": "{(today + timedelta(days=1)).isoformat()}", "priority": false, "status": "Pending", "repeat": null}}
-"buy groceries" → {{"title": "Buy groceries", "due_date": "{(today + timedelta(days=2)).isoformat()}", "priority": false, "status": "Pending", "repeat": null}}
+"call amish tomorrow 3pm urgent" → {"title": "Call Amish at 3pm", "due_date": "2026-04-26", "priority": true, "status": "Pending", "repeat": null}
+"submit fees by friday" → {"title": "Submit fees", "due_date": "2026-05-02", "priority": false, "status": "Pending", "repeat": null}
 """
 
     try:
@@ -87,6 +84,25 @@ Examples:
         return None
 
 
+def extract_task_number(message):
+    """Extract task number from message like 'mark task 2 done' or 'complete 3'"""
+    # Match patterns like: "task 2", "task 3", or just "2", "3" after action words
+    patterns = [
+        r'task\s+(\d+)',  # "task 2"
+        r'number\s+(\d+)',  # "number 2"
+        r'\s(\d+)\s',  # " 2 " (number with spaces)
+        r'^(\d+)\s',  # "2 " (number at start)
+        r'\s(\d+)$',  # " 2" (number at end)
+    ]
+    
+    for pattern in patterns:
+        match = re.search(pattern, message.lower())
+        if match:
+            return int(match.group(1))
+    
+    return None
+
+
 @chat_bp.route('/api/chat', methods=['POST'])
 @login_required
 def chat():
@@ -99,128 +115,113 @@ def chat():
 
     lower_msg = user_message.lower()
 
-    import re
+    # Priority 1: View/Filter commands (check FIRST)
+    view_keywords = ['show', 'list', 'what', 'whats', 'view', 'see', 'display']
+    if any(word in lower_msg for word in view_keywords):
+        if 'overdue' in lower_msg:
+            return jsonify({
+                'type': 'filter',
+                'filter': 'overdue',
+                'message': 'Showing overdue tasks'
+            })
+        elif 'today' in lower_msg:
+            return jsonify({
+                'type': 'filter',
+                'filter': 'today',
+                'message': 'Showing today\'s tasks'
+            })
+        elif any(word in lower_msg for word in ['upcoming', 'future', 'later', 'next']):
+            return jsonify({
+                'type': 'filter',
+                'filter': 'upcoming',
+                'message': 'Showing upcoming tasks'
+            })
 
-    # ============================================
-    # Priority 1: Drop task commands
-    # ============================================
-
-    drop_keywords = ['drop', 'cancel', 'abandon', 'skip']
-
+    # Priority 2: Drop/Cancel task commands
+    drop_keywords = ['drop', 'cancel', 'abandon', 'skip', 'remove']
     if any(word in lower_msg for word in drop_keywords):
-        patterns = [
-            r'task\s+(\d+)',
-            r'drop\s+(\d+)',
-            r'cancel\s+(\d+)',
-            r'skip\s+(\d+)',
-        ]
-
-        task_number = None
-        for pattern in patterns:
-            match = re.search(pattern, lower_msg)
-            if match:
-                task_number = int(match.group(1))
-                break
-
-        if task_number:
-            tasks = Task.query.filter_by(user_id=current_user.id).order_by(
-                Task.created_at.desc()).all()
-
-            if 1 <= task_number <= len(tasks):
-                task = tasks[task_number - 1]
+        task_num = extract_task_number(user_message)
+        
+        if task_num:
+            # Get user's tasks ordered by created_at (same as display)
+            tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
+            
+            if task_num > 0 and task_num <= len(tasks):
+                task = tasks[task_num - 1]
                 task.status = 'Dropped'
                 task.updated_at = datetime.utcnow()
-
-                try:
-                    db.session.commit()
-                    return jsonify({
-                        'type': 'task_updated',
-                        'task': task.to_dict(),
-                        'message': f'⛔ Dropped: {task.title}'
-                    }), 200
-                except Exception as e:
-                    db.session.rollback()
-                    print(f"Error dropping task: {e}")
-                    return jsonify({'type': 'error', 'message': 'Failed to drop task'}), 500
+                db.session.commit()
+                
+                return jsonify({
+                    'type': 'task_updated',
+                    'message': f'Dropped: {task.title}'
+                })
             else:
                 return jsonify({
                     'type': 'error',
-                    'message': f'Task {task_number} not found. You have {len(tasks)} tasks.'
-                }), 400
+                    'message': f'Task {task_num} not found. You have {len(tasks)} tasks.'
+                })
         else:
             return jsonify({
                 'type': 'info',
                 'message': 'Which task? Try: "drop task 2"'
-            }), 400
+            })
 
-    # ============================================
-    # Priority 2: Complete task commands
-    # ============================================
-
-    action_keywords = ['mark', 'complete', 'done',
-                       'finish', 'set', 'close', 'tick', 'check', 'did']
-
-    if any(word in lower_msg for word in action_keywords):
-        patterns = [
-            r'task\s+(\d+)',
-            r'mark\s+(\d+)',
-            r'complete\s+(\d+)',
-            r'finish\s+(\d+)',
-            r'close\s+(\d+)',
-            r'tick\s+(\d+)',
-            r'check\s+(\d+)',
-            r'did\s+(\d+)',
-        ]
-
-        task_number = None
-        for pattern in patterns:
-            match = re.search(pattern, lower_msg)
-            if match:
-                task_number = int(match.group(1))
-                break
-
-        if task_number:
-            tasks = Task.query.filter_by(user_id=current_user.id).order_by(
-                Task.created_at.desc()).all()
-
-            if 1 <= task_number <= len(tasks):
-                task = tasks[task_number - 1]
+    # Priority 3: Complete/Done task commands
+    complete_keywords = ['mark', 'complete', 'done', 'finish', 'set', 'close', 'tick', 'check', 'did']
+    if any(word in lower_msg for word in complete_keywords):
+        task_num = extract_task_number(user_message)
+        
+        if task_num:
+            # Get user's tasks ordered by created_at (same as display)
+            tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
+            
+            if task_num > 0 and task_num <= len(tasks):
+                task = tasks[task_num - 1]
                 task.status = 'Complete'
                 task.updated_at = datetime.utcnow()
-
-                try:
-                    db.session.commit()
-                    return jsonify({
-                        'type': 'task_updated',
-                        'task': task.to_dict(),
-                        'message': f'✓ Marked as complete: {task.title}'
-                    }), 200
-                except Exception as e:
-                    db.session.rollback()
-                    print(f"Error updating task: {e}")
-                    return jsonify({'type': 'error', 'message': 'Failed to update task'}), 500
+                db.session.commit()
+                
+                return jsonify({
+                    'type': 'task_updated',
+                    'message': f'✓ Completed: {task.title}'
+                })
             else:
                 return jsonify({
                     'type': 'error',
-                    'message': f'Task {task_number} not found. You have {len(tasks)} tasks.'
-                }), 400
+                    'message': f'Task {task_num} not found. You have {len(tasks)} tasks.'
+                })
         else:
             return jsonify({
                 'type': 'info',
                 'message': 'Which task? Try: "mark task 2 done"'
-            }), 400
+            })
 
-    # ============================================
-    # Priority 3: Task creation via LLM
-    # ============================================
-
+    # Priority 4: Task creation (DEFAULT)
+    # If message doesn't match above patterns, assume it's a new task
     parsed = parse_with_groq(user_message)
 
     if not parsed:
+        # Groq failed, create basic task from message
         return jsonify({
             'type': 'info',
-            'message': 'I couldn\'t parse that. Try: "call Sachin tomorrow 3pm" or "mark task 2 done"'
+            'message': 'I couldn\'t parse that perfectly. Try: "call amish tomorrow 3pm" or use + Add Task button'
         }), 400
+
+    # Smart due date defaults
+    today = datetime.utcnow().date()
+    
+    if not parsed.get('due_date'):
+        # Check if task has urgency keywords
+        urgent_keywords = ['urgent', 'asap', 'important', 'call']
+        is_urgent = any(keyword in user_message.lower() for keyword in urgent_keywords)
+        
+        if is_urgent:
+            # Urgent tasks → tomorrow
+            parsed['due_date'] = (today + timedelta(days=1)).isoformat()
+        else:
+            # Regular tasks → 2 days from now
+            parsed['due_date'] = (today + timedelta(days=2)).isoformat()
 
     # Create task from parsed data
     try:
@@ -232,6 +233,7 @@ def chat():
             repeat=parsed.get('repeat')
         )
 
+        # Parse due date
         if parsed.get('due_date'):
             try:
                 task.due_date = datetime.fromisoformat(
@@ -251,4 +253,7 @@ def chat():
     except Exception as e:
         db.session.rollback()
         print(f"Error creating task from chat: {e}")
-        return jsonify({'type': 'error', 'message': 'Failed to create task'}), 500
+        return jsonify({
+            'type': 'error',
+            'message': 'Failed to create task'
+        }), 500
