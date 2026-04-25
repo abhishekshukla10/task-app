@@ -300,10 +300,53 @@ textarea {
 }
 
 /* Conversational Input Bar */
+
+/* Conversational Input Section */
+.conv-section {
+    margin-bottom: 1.5rem;
+}
+
+/* Language Pills */
+.lang-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.lang-label {
+    font-size: 12px;
+    color: #888780;
+    font-weight: 500;
+}
+
+.lang-pill {
+    padding: 6px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background: #FFFFFF;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #5F5E5A;
+}
+
+.lang-pill:hover {
+    background: #F1EFE8;
+    border-color: rgba(0, 0, 0, 0.3);
+}
+
+.lang-pill.active {
+    background: #E6F1FB;
+    border-color: #378ADD;
+    color: #0C447C;
+}
+
+/* Input Bar */
 .conv-bar {
     display: flex;
-    gap: 12px;
-    margin-bottom: 1.5rem;
+    gap: 8px;
     align-items: center;
 }
 
@@ -313,11 +356,16 @@ textarea {
     border-radius: 12px;
     border: 0.5px solid rgba(0, 0, 0, 0.3);
     font-size: 15px;
-    min-width: 0;
-    /* Allows input to shrink properly */
+    background: #FFFFFF;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-/* Better placeholder styling */
+.conv-input:focus {
+    outline: none;
+    border-color: #378ADD;
+    box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.1);
+}
+
 .conv-input::placeholder {
     color: #888780;
     font-size: 13px;
@@ -328,26 +376,80 @@ textarea {
     opacity: 0.5;
 }
 
-/* Mobile-specific placeholder */
-@media (max-width: 480px) {
-    .conv-input::placeholder {
-        font-size: 11px;
-    }
-}
-
+/* Voice Button */
 .voice-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 12px;
     background: #E6F1FB;
     border: none;
-    font-size: 18px;
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
     transition: background 0.2s;
+    color: #0C447C;
 }
 
 .voice-btn:hover {
     background: #B5D4F4;
+}
+
+.voice-icon {
+    font-size: 18px;
+}
+
+.voice-label {
+    display: inline;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .conv-section {
+        margin-bottom: 1rem;
+    }
+
+    .lang-pills {
+        margin-bottom: 10px;
+    }
+
+    .lang-label {
+        font-size: 11px;
+    }
+
+    .lang-pill {
+        padding: 6px 14px;
+        font-size: 12px;
+    }
+
+    .conv-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .conv-input {
+        flex: 1 1 100%;
+        order: 1;
+        font-size: 14px;
+        padding: 12px 14px;
+    }
+
+    .conv-input::placeholder {
+        font-size: 12px;
+    }
+
+    .voice-btn {
+        flex: 1 1 100%;
+        order: 2;
+        justify-content: center;
+        padding: 12px 16px;
+        height: 44px;
+    }
+
+    .voice-label {
+        display: inline;
+    }
 }
 
 /* Jump Pills */

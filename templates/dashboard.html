@@ -25,24 +25,55 @@
         </div>
 
         <!-- Conversational Input Bar -->
+
+
         <div class="conv-bar">
-            <input type="text" class="conv-input" id="chat-input"
-                placeholder="Try: 'buy milk tomorrow' or 'mark task 2 done' or 'drop task 3'"
-                onkeypress="handleChatKeyPress(event)">
-            <button class="voice-btn" onclick="toggleVoiceLanguage()" title="Switch language"
-                style="font-size: 12px; width: 50px;">🇮🇳 EN</button>
-            <button class="voice-btn" onclick="startVoice()" title="Voice input">🎤</button>
+            <!-- Language Pills -->
+            <div class="lang-pills">
+                <span class="lang-label">Voice language:</span>
+                <button class="lang-pill active" id="lang-en" onclick="selectLanguage('en')">EN</button>
+                <button class="lang-pill" id="lang-hi" onclick="selectLanguage('hi')">HI</button>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="conv-bar">
+                <input type="text" class="conv-input" id="chat-input"
+                    placeholder="'mark task 2 done' or 'buy milk tomorrow'" onkeypress="handleChatKeyPress(event)">
+                <button class="voice-btn" onclick="startVoice()" title="Voice input">
+                    <span class="voice-icon">🎤</span>
+                    <span class="voice-label">Speak</span>
+                </button>
+            </div>
         </div>
 
         <!-- Example Chips -->
 
 
         <!-- Jump Navigation Pills -->
+
+
         <div class="pills">
-            <div class="pill active" onclick="filterTasks('overdue')">Overdue (<span id="count-overdue">0</span>)</div>
-            <div class="pill" onclick="filterTasks('today')">Today (<span id="count-today">0</span>)</div>
-            <div class="pill" onclick="filterTasks('upcoming')">Upcoming (<span id="count-upcoming">0</span>)</div>
-            <div class="pill" onclick="filterTasks('done')">Done (<span id="count-done">0</span>)</div>
+            <div class="pill active" onclick="filterTasks('overdue')">
+                <span class="pill-short">Over</span>
+                <span class="pill-full">Overdue</span>
+                <span class="pill-count">(<span id="count-overdue">0</span>)</span>
+            </div>
+            <div class="pill" onclick="filterTasks('today')">
+                <span class="pill-short">Today</span>
+                <span class="pill-full">Today</span>
+                <span class="pill-count">(<span id="count-today">0</span>)</span>
+            </div>
+            <div class="pill" onclick="filterTasks('upcoming')">
+                <span class="pill-short">Soon</span>
+                <span class="pill-full">Upcoming</span>
+                <span class="pill-count">(<span id="count-upcoming">0</span>)</span>
+            </div>
+            <div class="pill" onclick="filterTasks('done')">
+                <span class="pill-short">Done</span>
+                <span class="pill-full">Done</span>
+                <span class="pill-count">(<span id="count-done">0</span>)</span>
+            </div>
+
         </div>
 
         <!-- Task Sections -->
