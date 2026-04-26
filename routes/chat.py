@@ -30,15 +30,17 @@ Rules:
 Output ONLY valid JSON, no explanations:
 {
   "title": "task description",
-  "due_date": "2026-04-21" or null,
+  "due_date": "today" or "tomorrow" or "day after tomorrow" or null,
   "priority": true/false,
   "status": "Pending",
   "repeat": null or "Daily"/"Weekly"/"Monthly"
 }
 
 Examples:
-"call amish tomorrow 3pm urgent" → {"title": "Call Amish at 3pm", "due_date": "2026-04-26", "priority": true, "status": "Pending", "repeat": null}
-"submit fees by friday" → {"title": "Submit fees", "due_date": "2026-05-02", "priority": false, "status": "Pending", "repeat": null}
+"call amish tomorrow 3pm urgent" → {"title": "Call Amish at 3pm", "due_date": "tomorrow", "priority": true, "status": "Pending", "repeat": null}
+"gym today" → {"title": "Gym", "due_date": "today", "priority": false, "status": "Pending", "repeat": null}
+"meeting day after tomorrow" → {"title": "Meeting", "due_date": "day after tomorrow", "priority": false, "status": "Pending", "repeat": null}
+"submit fees by friday" → {"title": "Submit fees", "due_date": "friday", "priority": false, "status": "Pending", "repeat": null}
 """
 
     try:
@@ -94,13 +96,107 @@ def extract_task_number(message):
         r'^(\d+)\s',  # "2 " (number at start)
         r'\s(\d+)$',  # " 2" (number at end)
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, message.lower())
         if match:
             return int(match.group(1))
-    
+
     return None
+
+
+def preprocess_hindi_dates(message):
+    """
+    ✅ NEW: Convert Hindi date keywords to English before LLM processing
+    Critical for Indian users: aaj=today, kal=tomorrow, parso=day after tomorrow
+    """
+    # Hindi to English date mappings (case-insensitive)
+    replacements = {
+        # Core date keywords (CRITICAL for Indian users)
+        r'\baaj\b': 'today',
+        r'\baaj ka\b': 'today',
+        r'\bkal\b': 'tomorrow',
+        r'\bkl\b': 'tomorrow',
+        r'\bparso\b': 'day after tomorrow',
+        r'\bparsoo\b': 'day after tomorrow',
+        
+        # Week references
+        r'\bis hafte\b': 'this week',
+        r'\bis week\b': 'this week',
+        r'\bagle hafte\b': 'next week',
+        r'\bagla hafta\b': 'next week',
+        
+        # Month references
+        r'\bis mahine\b': 'this month',
+        r'\bis month\b': 'this month',
+        r'\bagle mahine\b': 'next month',
+        r'\bagla month\b': 'next month',
+        
+        # Days of week (Hindi)
+        r'\bsomwar\b': 'monday',
+        r'\bsomvaar\b': 'monday',
+        r'\bmangalwar\b': 'tuesday',
+        r'\bmangalvaar\b': 'tuesday',
+        r'\bbudhwar\b': 'wednesday',
+        r'\bbudhvaar\b': 'wednesday',
+        r'\bguruwaar\b': 'thursday',
+        r'\bguruvaar\b': 'thursday',
+        r'\bshukrawaar\b': 'friday',
+        r'\bshukravar\b': 'friday',
+        r'\bshaniwar\b': 'saturday',
+        r'\bshanivaar\b': 'saturday',
+        r'\braviwar\b': 'sunday',
+        r'\bravivaar\b': 'sunday',
+    }
+    
+    # Apply all replacements (case-insensitive)
+    processed = message
+    for hindi_pattern, english_word in replacements.items():
+        processed = re.sub(hindi_pattern, english_word, processed, flags=re.IGNORECASE)
+    
+    return processed
+
+
+def convert_relative_date(date_string):
+    """
+    ✅ NEW: Convert relative date strings to ISO format dates
+    Handles: 'today', 'tomorrow', 'day after tomorrow'
+    Returns ISO date string or original if already in ISO format
+    """
+    if not date_string:
+        return None
+    
+    today = datetime.utcnow().date()
+    date_lower = date_string.lower().strip()
+    
+    # Convert relative dates to ISO
+    if date_lower == 'today':
+        return today.isoformat()
+    elif date_lower == 'tomorrow':
+        return (today + timedelta(days=1)).isoformat()
+    elif 'day after tomorrow' in date_lower:
+        return (today + timedelta(days=2)).isoformat()
+    
+    # Already an ISO date or other format - return as is
+    return date_string
+
+
+def sort_tasks_by_priority(tasks):
+    """
+    ✅ FIXED: Sort tasks by priority first, then by due_date, then by ID
+    This MATCHES the frontend sorting in app.js sortTasksByPriority()
+
+    Sorting logic:
+    1. Priority tasks (★) first
+    2. Then by due date (oldest first)
+    3. Then by task ID (ensures consistent order when priority+date are same)
+    """
+    return sorted(tasks, key=lambda t: (
+        # False (priority=True) comes before True (priority=False)
+        not t.priority,
+        t.due_date if t.due_date else datetime.max.date(),  # Tasks with dates first
+        t.id  # ✅ FIX: ID as tie-breaker for tasks with same priority & date
+    ))
 
 
 @chat_bp.route('/api/chat', methods=['POST'])
@@ -109,7 +205,8 @@ def chat():
     """Handle conversational input"""
     data = request.get_json()
     user_message = data.get('message', '').strip()
-    current_filter = data.get('current_filter', 'overdue')  # Get current filter context
+    # Get current filter context
+    current_filter = data.get('current_filter', 'overdue')
 
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
@@ -142,44 +239,47 @@ def chat():
     drop_keywords = ['drop', 'cancel', 'abandon', 'skip', 'remove']
     if any(word in lower_msg for word in drop_keywords):
         task_num = extract_task_number(user_message)
-        
+
         if task_num:
             # Get tasks based on current filter (what user is viewing)
             today = datetime.utcnow().date()
-            
+
             if current_filter == 'overdue':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Pending', 'In Progress']),
                     Task.due_date < today
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             elif current_filter == 'today':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Pending', 'In Progress']),
                     Task.due_date == today
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             elif current_filter == 'upcoming':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Pending', 'In Progress']),
                     db.or_(Task.due_date > today, Task.due_date == None)
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             elif current_filter == 'done':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Complete', 'Dropped'])
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             else:
                 # Fallback: all tasks
-                tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
-            
+                tasks = Task.query.filter_by(user_id=current_user.id).all()
+
+            # ✅ FIX: Sort by priority to match frontend
+            tasks = sort_tasks_by_priority(tasks)
+
             if task_num > 0 and task_num <= len(tasks):
                 task = tasks[task_num - 1]
                 task.status = 'Dropped'
                 task.updated_at = datetime.utcnow()
                 db.session.commit()
-                
+
                 return jsonify({
                     'type': 'task_updated',
                     'message': f'Dropped: {task.title}'
@@ -196,47 +296,51 @@ def chat():
             })
 
     # Priority 3: Complete/Done task commands
-    complete_keywords = ['mark', 'complete', 'done', 'finish', 'set', 'close', 'tick', 'check', 'did']
+    complete_keywords = ['mark', 'complete', 'done',
+                         'finish', 'set', 'close', 'tick', 'check', 'did']
     if any(word in lower_msg for word in complete_keywords):
         task_num = extract_task_number(user_message)
-        
+
         if task_num:
             # Get tasks based on current filter (what user is viewing)
             today = datetime.utcnow().date()
-            
+
             if current_filter == 'overdue':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Pending', 'In Progress']),
                     Task.due_date < today
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             elif current_filter == 'today':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Pending', 'In Progress']),
                     Task.due_date == today
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             elif current_filter == 'upcoming':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Pending', 'In Progress']),
                     db.or_(Task.due_date > today, Task.due_date == None)
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             elif current_filter == 'done':
                 tasks = Task.query.filter(
                     Task.user_id == current_user.id,
                     Task.status.in_(['Complete', 'Dropped'])
-                ).order_by(Task.created_at.desc()).all()
+                ).all()
             else:
                 # Fallback: all tasks
-                tasks = Task.query.filter_by(user_id=current_user.id).order_by(Task.created_at.desc()).all()
-            
+                tasks = Task.query.filter_by(user_id=current_user.id).all()
+
+            # ✅ FIX: Sort by priority to match frontend
+            tasks = sort_tasks_by_priority(tasks)
+
             if task_num > 0 and task_num <= len(tasks):
                 task = tasks[task_num - 1]
                 task.status = 'Complete'
                 task.updated_at = datetime.utcnow()
                 db.session.commit()
-                
+
                 return jsonify({
                     'type': 'task_updated',
                     'message': f'✓ Completed: {task.title}'
@@ -254,23 +358,55 @@ def chat():
 
     # Priority 4: Task creation (DEFAULT)
     # If message doesn't match above patterns, assume it's a new task
-    parsed = parse_with_groq(user_message)
+    
+    # ✅ NEW: Preprocess Hindi dates before sending to LLM
+    preprocessed_message = preprocess_hindi_dates(user_message)
+    parsed = parse_with_groq(preprocessed_message)
 
     if not parsed:
-        # Groq failed, create basic task from message
-        return jsonify({
-            'type': 'info',
-            'message': 'I couldn\'t parse that perfectly. Try: "call amish tomorrow 3pm" or use + Add Task button'
-        }), 400
+        # ✅ FIX: Groq failed, but create task anyway with raw text
+        try:
+            task = Task(
+                user_id=current_user.id,
+                title=user_message,  # Use raw message as title
+                status='Pending',
+                priority=False,
+                # Default: 2 days from now
+                due_date=(datetime.utcnow().date() + timedelta(days=2))
+            )
+
+            db.session.add(task)
+            db.session.commit()
+
+            return jsonify({
+                'type': 'task_created',
+                'task': task.to_dict(),
+                # Truncate long titles in toast
+                'message': f'✓ Created: {task.title[:50]}...'
+            }), 201
+
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error creating fallback task: {e}")
+            return jsonify({
+                'type': 'info',
+                'message': 'Couldn\'t create task. Try: "call amish tomorrow" or use + Add Task'
+            }), 400
 
     # Smart due date defaults
     today = datetime.utcnow().date()
-    
+
+    # ✅ NEW: Convert relative dates from Groq to ISO format FIRST
+    if parsed.get('due_date'):
+        parsed['due_date'] = convert_relative_date(parsed['due_date'])
+
+    # ✅ THEN apply +2 days fallback if STILL no date
     if not parsed.get('due_date'):
         # Check if task has urgency keywords
         urgent_keywords = ['urgent', 'asap', 'important', 'call']
-        is_urgent = any(keyword in user_message.lower() for keyword in urgent_keywords)
-        
+        is_urgent = any(keyword in user_message.lower()
+                        for keyword in urgent_keywords)
+
         if is_urgent:
             # Urgent tasks → tomorrow
             parsed['due_date'] = (today + timedelta(days=1)).isoformat()

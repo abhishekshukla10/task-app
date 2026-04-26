@@ -24,26 +24,37 @@
             <p class="briefing-text" id="briefing-text"></p>
         </div>
 
-        <!-- Conversational Input Section -->
-        <div class="conv-section">
-            <!-- Language Pills + Voice Button -->
-            <div class="lang-pills">
-                <div class="lang-pills-left">
-                    <span class="lang-label">Voice language:</span>
-                    <button class="lang-pill active" id="lang-en" onclick="selectLanguage('en')">EN</button>
-                    <button class="lang-pill" id="lang-hi" onclick="selectLanguage('hi')">HI</button>
+        <!-- ✅ NEW: Quick Add Zone (Blue Box) -->
+        <div class="quick-add-zone">
+            <!-- Conversational Input Section -->
+            <div class="conv-section">
+                <!-- Language Pills + Voice Button -->
+                <div class="lang-pills">
+                    <div class="lang-pills-left">
+                        <span class="lang-label">Voice language:</span>
+                        <button class="lang-pill active" id="lang-en" onclick="selectLanguage('en')">EN</button>
+                        <button class="lang-pill" id="lang-hi" onclick="selectLanguage('hi')">HI</button>
+                    </div>
+                    <button class="voice-btn" onclick="startVoice()" title="Voice input">
+                        <span class="voice-icon">🎤</span>
+                    </button>
                 </div>
-                <button class="voice-btn" onclick="startVoice()" title="Voice input">
-                    <span class="voice-icon">🎤</span>
-                </button>
+                
+                <!-- Input Bar -->
+                <input type="text" 
+                       class="conv-input" 
+                       id="chat-input" 
+                       placeholder="'mark task 2 done' or 'buy milk tomorrow'"
+                       onkeypress="handleChatKeyPress(event)">
+                
+                <!-- ✅ NEW: Smart Pills -->
+                <div class="smart-pills">
+                    <button class="smart-pill" onclick="addQuickDate('today')">Today</button>
+                    <button class="smart-pill" onclick="addQuickDate('tomorrow')">Tomorrow</button>
+                    <button class="smart-pill" onclick="addQuickDate('important')">★</button>
+                    <button class="smart-pill" onclick="addQuickDate('+2days')">+2d</button>
+                </div>
             </div>
-            
-            <!-- Input Bar -->
-            <input type="text" 
-                   class="conv-input" 
-                   id="chat-input" 
-                   placeholder="'mark task 2 done' or 'buy milk tomorrow'"
-                   onkeypress="handleChatKeyPress(event)">
         </div>
 
         <!-- Jump Navigation Pills -->

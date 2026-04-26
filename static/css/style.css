@@ -704,3 +704,102 @@ textarea {
         white-space: nowrap;  /* Prevent text wrapping */
     }
 }
+/* ============================================
+   NEW ADDITIONS FOR BLUE BOX + SMART PILLS
+   Add these to your existing style.css
+   ============================================ */
+
+/* ✅ NEW: Quick Add Zone (Blue Box Wrapper) */
+.quick-add-zone {
+    background: linear-gradient(135deg, #E6F1FB 0%, #F0F8FF 100%);
+    border: 2px solid #378ADD;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(55, 138, 221, 0.2);
+}
+
+/* Update existing .conv-section to remove bottom margin */
+.quick-add-zone .conv-section {
+    margin-bottom: 0;
+}
+
+/* ✅ NEW: Pulsing Animation for Voice Button */
+.voice-btn {
+    animation: voicePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes voicePulse {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(55, 138, 221, 0.15);
+    }
+    50% { 
+        transform: scale(1.08);
+        box-shadow: 0 4px 16px rgba(55, 138, 221, 0.3);
+    }
+}
+
+/* ✅ NEW: Smart Pills */
+.smart-pills {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.smart-pill {
+    flex: 1;
+    padding: 6px 4px;
+    border-radius: 6px;
+    background: #FFFFFF;
+    border: 1px solid #378ADD;
+    font-size: 11px;
+    font-weight: 500;
+    color: #378ADD;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.smart-pill:hover {
+    background: #378ADD;
+    color: #FFFFFF;
+}
+
+.smart-pill:active {
+    transform: scale(0.95);
+}
+
+/* ✅ NEW: Task Checkbox */
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #CBD5E1;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.task-checkbox:hover {
+    border-color: #378ADD;
+    background: #E6F1FB;
+    transform: scale(1.1);
+}
+
+.task-checkbox:active {
+    background: #378ADD;
+    border-color: #378ADD;
+}
+
+/* Mobile adjustments for smart pills */
+@media (max-width: 480px) {
+    .smart-pill {
+        font-size: 10px;
+        padding: 5px 2px;
+    }
+    
+    .quick-add-zone {
+        padding: 10px;
+    }
+}
