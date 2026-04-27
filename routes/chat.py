@@ -10,9 +10,102 @@ import re
 chat_bp = Blueprint('chat', __name__)
 
 
-def parse_with_groq(user_message):
-    """Parse natural language input using Groq API"""
+def try_simple_parse(user_message):
+    """
+    ✅ NEW: Try simple regex parsing first (no AI, instant, preserves all text)
+    
+    Handles 90% of cases:
+    - "task today" → Due today
+    - "task tomorrow urgent" → Due tomorrow, priority
+    - "how to cook learn today" → Preserves "how to"
+    
+    Returns parsed dict or None if complex (needs AI)
+    """
+    text = user_message.strip()
+    text_lower = text.lower()
+    
+    # Check for complex patterns that need AI
+    complex_keywords = [
+        'next', 'in ', 'after', 'before', 'this ', 'coming', 'following',
+        'week', 'month', 'monday', 'tuesday', 'wednesday', 'thursday', 
+        'friday', 'saturday', 'sunday', 'jan', 'feb', 'mar', 'apr', 
+        'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+    ]
+    
+    # If contains complex date patterns, use AI
+    for keyword in complex_keywords:
+        if re.search(rf'\b{keyword}\b', text_lower):
+            return None  # Too complex, use AI
+    
+    # Simple date extraction
+    due_date = None
+    date_keyword = None
+    
+    # Check for today
+    if re.search(r'\btoday\b', text_lower):
+        due_date = datetime.utcnow().date().isoformat()
+        date_keyword = 'today'
+    # Check for tomorrow
+    elif re.search(r'\btomorrow\b', text_lower):
+        due_date = (datetime.utcnow().date() + timedelta(days=1)).isoformat()
+        date_keyword = 'tomorrow'
+    # Check for day after tomorrow
+    elif re.search(r'\bday after tomorrow\b', text_lower):
+        due_date = (datetime.utcnow().date() + timedelta(days=2)).isoformat()
+        date_keyword = 'day after tomorrow'
+    
+    # Priority extraction
+    priority = False
+    priority_keywords = []
+    
+    for keyword in ['urgent', 'important', 'asap', 'critical']:
+        if re.search(rf'\b{keyword}\b', text_lower):
+            priority = True
+            priority_keywords.append(keyword)
+    
+    # Clean title (remove date and priority keywords)
+    title = text
+    
+    # Remove date keyword
+    if date_keyword:
+        title = re.sub(rf'\b{date_keyword}\b', '', title, flags=re.IGNORECASE)
+    
+    # Remove priority keywords
+    for keyword in priority_keywords:
+        title = re.sub(rf'\b{keyword}\b', '', title, flags=re.IGNORECASE)
+    
+    # Clean up extra whitespace
+    title = ' '.join(title.split())
+    
+    # If title is empty or too short after cleaning, return None (let AI handle)
+    if not title.strip() or len(title.strip()) < 2:
+        return None
+    
+    # Return parsed result
+    return {
+        'title': title.strip(),
+        'due_date': due_date,
+        'priority': priority,
+        'status': 'Pending',
+        'repeat': None
+    }
 
+
+def parse_with_groq(user_message):
+    """
+    ✅ UPDATED: Hybrid parsing - try simple parse first, use AI as fallback
+    
+    Flow:
+    1. Try simple regex parse (90% of cases) → Instant, preserves text
+    2. If complex, use Groq AI (10% of cases) → Handles "next friday", etc.
+    """
+    
+    # ✅ STEP 1: Try simple parse first
+    simple_result = try_simple_parse(user_message)
+    if simple_result:
+        return simple_result  # No AI needed! ⚡
+    
+    # ✅ STEP 2: Complex case - use AI
     GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
     if not GROQ_API_KEY:
         return None
@@ -22,6 +115,8 @@ def parse_with_groq(user_message):
 
 Rules:
 - Extract: title, due_date, priority, status, repeat
+- PRESERVE all words in title including "how to", "I need to", "want to", etc.
+- Only remove date keywords (today, tomorrow, etc.) and priority keywords (urgent, important) from title
 - Due date formats: "tomorrow", "next monday", "25th april", "in 3 days"
 - Priority: true if "important", "urgent", "asap", "critical"
 - Status: "Pending" (default), "In Progress", "Completed"
@@ -38,9 +133,10 @@ Output ONLY valid JSON, no explanations:
 
 Examples:
 "call amish tomorrow 3pm urgent" → {"title": "Call Amish at 3pm", "due_date": "tomorrow", "priority": true, "status": "Pending", "repeat": null}
+"how to cook pasta next friday" → {"title": "How to cook pasta", "due_date": "next friday", "priority": false, "status": "Pending", "repeat": null}
+"I need to submit fees in 3 days" → {"title": "I need to submit fees", "due_date": "in 3 days", "priority": false, "status": "Pending", "repeat": null}
 "gym today" → {"title": "Gym", "due_date": "today", "priority": false, "status": "Pending", "repeat": null}
 "meeting day after tomorrow" → {"title": "Meeting", "due_date": "day after tomorrow", "priority": false, "status": "Pending", "repeat": null}
-"submit fees by friday" → {"title": "Submit fees", "due_date": "friday", "priority": false, "status": "Pending", "repeat": null}
 """
 
     try:

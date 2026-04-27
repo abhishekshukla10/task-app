@@ -667,21 +667,69 @@ async function saveTask() {
 
 async function deleteTask() {
     const taskId = document.getElementById('edit-task-id').value;
-    if (!taskId || !confirm('Are you sure you want to delete this task?')) return;
 
+    if (!taskId) return;
+
+    // Confirm deletion
+    if (!confirm('Are you sure you want to delete this task?')) {
+        return;
+    }
+
+    // ✅ STEP 1: Close modal immediately
+    closeModal();
+
+    // ✅ STEP 2: Find and backup the task for potential rollback
+    const taskIndex = allTasks.findIndex(t => t.id == taskId);
+
+    if (taskIndex === -1) {
+        showToast('❌ Task not found');
+        return;
+    }
+
+    const deletedTask = { ...allTasks[taskIndex] }; // Backup copy
+
+    // ✅ STEP 3: OPTIMISTIC UPDATE - Remove from UI immediately
+    allTasks.splice(taskIndex, 1);
+    renderTasks();
+    updateCounts();
+    updateFooter();
+
+    // Show deleting toast (subtle)
+    showToast('Deleting task...');
+
+    // ✅ STEP 4: Delete from server (in background)
     try {
-        const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        const response = await fetch(`/api/tasks/${taskId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        });
 
         if (response.ok) {
-            showToast('Task deleted');
-            closeModal();
-            loadTasks(); // ✅ CHANGED: loadSmartBriefing() now called inside loadTasks()
+            // ✅ SUCCESS - Server confirmed deletion
+            showToast('✓ Task deleted');
         } else {
-            showToast('Failed to delete task');
+            // ❌ SERVER ERROR - Rollback
+            console.error('Delete failed:', response.status);
+
+            // Restore the task
+            allTasks.splice(taskIndex, 0, deletedTask);
+            renderTasks();
+            updateCounts();
+            updateFooter();
+
+            showToast('❌ Delete failed. Task restored. Please try again.');
         }
     } catch (error) {
-        console.error('Error deleting task:', error);
-        showToast('Error deleting task');
+        // ❌ NETWORK ERROR - Rollback
+        console.error('Delete error:', error);
+
+        // Restore the task
+        allTasks.splice(taskIndex, 0, deletedTask);
+        renderTasks();
+        updateCounts();
+        updateFooter();
+
+        showToast('❌ Network error. Task restored. Check your connection.');
     }
 }
 
@@ -724,12 +772,12 @@ function escapeHtml(text) {
 function selectLanguage(lang) {
     const chatInput = document.getElementById('chat-input');
     const smartPills = document.querySelectorAll('.smart-pills button');
-    
+
     if (lang === 'en') {
         currentLang = 'en-IN';
         document.getElementById('lang-en').classList.add('active');
         document.getElementById('lang-hi').classList.remove('active');
-        
+
         // ✅ Update UI to English
         chatInput.placeholder = "'mark task 2 done' or 'buy milk tomorrow'";
         if (smartPills.length >= 4) {
@@ -742,7 +790,7 @@ function selectLanguage(lang) {
         currentLang = 'hi-IN';
         document.getElementById('lang-hi').classList.add('active');
         document.getElementById('lang-en').classList.remove('active');
-        
+
         // ✅ Update UI to Hindi
         chatInput.placeholder = "कल घर का सामान खरीदना है";
         if (smartPills.length >= 4) {
@@ -763,23 +811,30 @@ function addQuickDate(type) {
     const input = document.getElementById('chat-input');
     let text = input.value.trim().toLowerCase();
 
-    // Check if date already exists
-    const dateKeywords = [
-        'today', 'tomorrow',
-        'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
-        'next week', 'next month',
-        'in 2 days', 'in 3 days', 'in 4 days', 'in 5 days',
-        'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
-    ];
+    // ✅ ONLY check for existing dates when adding DATE pills
+    // Skip this check for the star (important) pill
+    if (type !== 'important') {
+        const dateKeywords = [
+            'today', 'tomorrow',
+            'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+            'next week', 'next month',
+            'in 2 days', 'in 3 days', 'in 4 days', 'in 5 days',
+            'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+        ];
 
-    const hasDateAlready = dateKeywords.some(keyword => text.includes(keyword));
+        // Use word boundaries to avoid false positives
+        const hasDateAlready = dateKeywords.some(keyword => {
+            const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+            return regex.test(text);
+        });
 
-    if (hasDateAlready) {
-        showToast('⚠️ Date already mentioned in task');
-        return;
+        if (hasDateAlready) {
+            showToast('⚠️ Date already mentioned in task');
+            return;
+        }
     }
 
-    // Add date from pill
+    // Add appropriate text based on pill type
     if (type === 'today') {
         input.value = input.value.trim() + ' today';
     } else if (type === 'tomorrow') {
@@ -790,7 +845,8 @@ function addQuickDate(type) {
         input.value = input.value.trim() + ' in 2 days';
     }
 
-    sendChat();
+    // Keep focus on input for further edits
+    input.focus();
 }
 
 // Quick Complete via Checkbox
