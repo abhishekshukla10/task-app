@@ -18,13 +18,13 @@
 
     <!-- Main Content -->
     <main class="content">
-        <!-- AI Briefing Card -->
+        <!-- ✅ UPDATED: Top 3 Priorities Briefing Card -->
         <div id="briefing-card" class="briefing" style="display: none;">
-            <p class="briefing-title" id="briefing-title">Good morning! Here's your day</p>
+            <p class="briefing-title" id="briefing-title">Let's do it.. ⚡</p>
             <p class="briefing-text" id="briefing-text"></p>
         </div>
 
-        <!-- ✅ NEW: Quick Add Zone (Blue Box) -->
+        <!-- Quick Add Zone (Blue Box) -->
         <div class="quick-add-zone">
             <!-- Conversational Input Section -->
             <div class="conv-section">
@@ -47,7 +47,7 @@
                        placeholder="'mark task 2 done' or 'buy milk tomorrow'"
                        onkeypress="handleChatKeyPress(event)">
                 
-                <!-- ✅ NEW: Smart Pills -->
+                <!-- Smart Pills -->
                 <div class="smart-pills">
                     <button class="smart-pill" onclick="addQuickDate('today')">Today</button>
                     <button class="smart-pill" onclick="addQuickDate('tomorrow')">Tomorrow</button>
@@ -76,6 +76,15 @@
         <!-- Task Sections -->
         <div id="overdue-section" class="task-section">
             <div class="section-label">OVERDUE</div>
+            
+            <!-- ✅ NEW: Smart Reschedule Inline Hint (shows when 5+ overdue) -->
+            <div id="reschedule-hint" class="reschedule-hint" style="display: none;">
+                <div class="reschedule-hint-text">Too many overdue tasks?</div>
+                <button class="reschedule-btn" onclick="showRescheduleModal()">
+                    🤖 Smart Reschedule All (<span id="reschedule-count">0</span>)
+                </button>
+            </div>
+            
             <div id="overdue-tasks" class="task-list"></div>
         </div>
 
@@ -167,11 +176,28 @@
         <div class="modal-footer">
             <button class="btn btn-danger" id="delete-btn" onclick="deleteTask()" style="display: none;">Delete</button>
             <div>
-                <button class="btn" id="breakdown-btn" onclick="breakdownTask()" style="display: none;">🔨 Break Down</button>
-                <button class="btn" id="stuck-btn" onclick="getStuckHelp()" style="display: none;">💡 Get Help</button>
+                <!-- ✅ REMOVED: breakdown-btn and stuck-btn -->
                 <button class="btn" onclick="closeModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveTask()">Save</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ✅ NEW: Smart Reschedule Review Modal -->
+<div id="reschedule-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeRescheduleModal()"></div>
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Smart Reschedule</h2>
+            <button class="close-btn" onclick="closeRescheduleModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="reschedule-suggestions"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" onclick="closeRescheduleModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="applyReschedule()">Reschedule All</button>
         </div>
     </div>
 </div>

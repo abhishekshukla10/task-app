@@ -1,13 +1,14 @@
 // Global state
 let allTasks = [];
 let currentFilter = 'overdue';
+let rescheduleSuggestions = null; // ✅ NEW: Store reschedule data
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
     if (window.location.pathname === '/dashboard') {
         loadTasks();
-        loadSmartBriefing();
-        checkEveningReflection();
+        generateTop3Priorities(); // ✅ CHANGED: was loadSmartBriefing()
+        // ✅ REMOVED: checkEveningReflection()
     }
 });
 
@@ -20,86 +21,240 @@ async function loadTasks() {
         renderTasks();
         updateCounts();
         updateFooter();
+        generateTop3Priorities(); // ✅ NEW: Update briefing when tasks load
+        checkRescheduleHint(); // ✅ NEW: Check if reschedule hint should show
     } catch (error) {
         console.error('Error loading tasks:', error);
         showToast('Failed to load tasks');
     }
 }
 
-// Load AI-powered smart briefing
-async function loadSmartBriefing() {
-    try {
-        const response = await fetch('/api/smart-briefing');
-        const data = await response.json();
+// ✅ NEW FUNCTION: Generate Top 3 Priorities Briefing (replaces loadSmartBriefing + generateClientBriefing)
+function generateTop3Priorities() {
+    const today = new Date().toISOString().split('T')[0];
 
-        document.getElementById('briefing-title').textContent = `${data.greeting}! Here's your day`;
-        document.getElementById('briefing-text').textContent = data.message;
+    // Get all active tasks
+    const activeTasks = allTasks.filter(t =>
+        t.status !== 'Complete' && t.status !== 'Dropped'
+    );
 
-        if (data.top_priority) {
-            document.getElementById('briefing-text').textContent +=
-                ` Top priority: "${data.top_priority.title}" (${data.top_priority.days_overdue} day${data.top_priority.days_overdue !== 1 ? 's' : ''} overdue).`;
+    if (activeTasks.length === 0) {
+        document.getElementById('briefing-card').style.display = 'none';
+        return;
+    }
+
+    // ✅ Sort by due_date (earliest first), then by created_at (oldest first)
+    const sortByDateAndCreation = (a, b) => {
+        // Primary sort: by due date
+        if (!a.due_date && !b.due_date) {
+            // Both have no date, sort by creation
+            return new Date(a.created_at) - new Date(b.created_at);
+        }
+        if (!a.due_date) return 1;  // Tasks without dates go last
+        if (!b.due_date) return -1;
+
+        const dateCompare = a.due_date.localeCompare(b.due_date);
+        if (dateCompare !== 0) return dateCompare;
+
+        // Secondary sort: if same date, sort by creation date (oldest first)
+        return new Date(a.created_at) - new Date(b.created_at);
+    };
+
+    const overdue = activeTasks.filter(t => t.due_date && t.due_date < today)
+        .sort(sortByDateAndCreation);
+    const todayTasks = activeTasks.filter(t => t.due_date === today)
+        .sort(sortByDateAndCreation);
+    const upcoming = activeTasks.filter(t => !t.due_date || t.due_date > today)
+        .sort(sortByDateAndCreation);
+
+    let top3 = [];
+
+    // ✅ PRIORITY 1: Overdue + starred
+    const overdueStarred = overdue.filter(t => t.priority);
+    if (overdueStarred.length > 0) {
+        top3.push(overdueStarred[0]);
+    }
+
+    // ✅ PRIORITY 2: Today + starred
+    if (top3.length < 3) {
+        const todayStarred = todayTasks.filter(t => t.priority);
+        if (todayStarred.length > 0) top3.push(todayStarred[0]);
+    }
+
+    // ✅ PRIORITY 3: Upcoming + starred (YOUR FIX!)
+    if (top3.length < 3) {
+        const upcomingStarred = upcoming.filter(t => t.priority);
+        if (upcomingStarred.length > 0) {
+            // Add as many starred upcoming as needed to fill top 3
+            const needed = 3 - top3.length;
+            top3.push(...upcomingStarred.slice(0, needed));
+        }
+    }
+
+    // ✅ PRIORITY 4: Any overdue (fallback)
+    if (top3.length < 3 && overdue.length > 0) {
+        const notInTop3 = overdue.filter(t => !top3.includes(t));
+        if (notInTop3.length > 0) top3.push(notInTop3[0]);
+    }
+
+    // ✅ PRIORITY 5: Any today (fallback)
+    if (top3.length < 3 && todayTasks.length > 0) {
+        const notInTop3 = todayTasks.filter(t => !top3.includes(t));
+        if (notInTop3.length > 0) top3.push(notInTop3[0]);
+    }
+
+    // ✅ PRIORITY 6: Any upcoming (fallback)
+    if (top3.length < 3 && upcoming.length > 0) {
+        const notInTop3 = upcoming.filter(t => !top3.includes(t));
+        const needed = 3 - top3.length;
+        top3.push(...notInTop3.slice(0, needed));
+    }
+
+    // Build briefing text (max 3 lines)
+    let briefingHTML = '';
+    top3.slice(0, 3).forEach((task, index) => {
+        const star = task.priority ? '★ ' : '';
+        const title = task.title.length > 35 ? task.title.substring(0, 35) + '...' : task.title;
+
+        let badge = '';
+        if (task.due_date) {
+            const dueDate = new Date(task.due_date);
+            if (task.due_date < today) {
+                const daysOverdue = Math.floor((new Date() - dueDate) / (1000 * 60 * 60 * 24));
+                badge = `(${daysOverdue}d overdue)`;
+            } else if (task.due_date === today) {
+                badge = '(today)';
+            } else {
+                badge = `(${formatDate(task.due_date)})`;
+            }
         }
 
-        document.getElementById('briefing-card').style.display = 'block';
-    } catch (error) {
-        console.error('Error loading briefing:', error);
-        // Fallback to client-side briefing
-        generateClientBriefing();
-    }
+        briefingHTML += `${index + 1}. ${star}${title} ${badge}<br>`;
+    });
+
+    // Update briefing card
+    document.getElementById('briefing-title').textContent = "Let's do it.. ⚡";
+    document.getElementById('briefing-text').innerHTML = briefingHTML || 'No tasks yet. Add your first task!';
+    document.getElementById('briefing-card').style.display = 'block';
 }
 
-// Fallback client-side briefing
-function generateClientBriefing() {
-    const today = new Date().toISOString().split('T')[0];
-    const hour = new Date().getHours();
+// ✅ REMOVED: loadSmartBriefing() - replaced by generateTop3Priorities()
+// ✅ REMOVED: generateClientBriefing() - replaced by generateTop3Priorities()
+// ✅ REMOVED: checkEveningReflection() - no longer needed
+// ✅ REMOVED: showReflectionPrompt() - no longer needed
 
-    const overdue = allTasks.filter(t =>
+// ✅ NEW FUNCTION: Check if smart reschedule hint should show
+function checkRescheduleHint() {
+    const today = new Date().toISOString().split('T')[0];
+    const overdueTasks = allTasks.filter(t =>
         t.status !== 'Complete' &&
         t.status !== 'Dropped' &&
         t.due_date &&
         t.due_date < today
     );
 
-    const todayTasks = allTasks.filter(t =>
-        t.status !== 'Complete' &&
-        t.status !== 'Dropped' &&
-        t.due_date === today
-    );
-
-    let greeting = 'Good morning';
-    if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
-    if (hour >= 17) greeting = 'Good evening';
-
-    if (overdue.length > 0 || todayTasks.length > 0) {
-        let briefing = `${greeting}! ${overdue.length} overdue, ${todayTasks.length} due today.`;
-        document.getElementById('briefing-text').textContent = briefing;
-        document.getElementById('briefing-card').style.display = 'block';
+    const hint = document.getElementById('reschedule-hint');
+    if (hint) {
+        if (overdueTasks.length >= 5) {
+            document.getElementById('reschedule-count').textContent = overdueTasks.length;
+            hint.style.display = 'block';
+        } else {
+            hint.style.display = 'none';
+        }
     }
 }
 
-// Check if evening reflection should show
-function checkEveningReflection() {
-    const hour = new Date().getHours();
-    if (hour >= 20 && hour < 23) {  // 8pm - 11pm
-        setTimeout(showReflectionPrompt, 5000);  // Show after 5 seconds
-    }
-}
-
-// Show evening reflection prompt
-async function showReflectionPrompt() {
+// ✅ NEW FUNCTION: Show smart reschedule modal
+async function showRescheduleModal() {
     try {
-        const response = await fetch('/api/reflection', { method: 'POST' });
+        const response = await fetch('/api/smart-reschedule', { method: 'POST' });
         const data = await response.json();
 
-        if (data.completed_count > 0) {
-            const message = `🎉 You completed ${data.completed_count} task${data.completed_count !== 1 ? 's' : ''} today!\n\n${data.prompt}`;
-            if (confirm(message)) {
-                // Could open a reflection modal here
-                console.log('Reflection accepted');
+        if (!data.suggestions || data.suggestions.length === 0) {
+            showToast('No rescheduling suggestions available');
+            return;
+        }
+
+        rescheduleSuggestions = data.suggestions;
+
+        // Build suggestions HTML grouped by date
+        let html = '';
+        const grouped = {};
+
+        data.suggestions.forEach(s => {
+            if (!grouped[s.new_date]) {
+                grouped[s.new_date] = [];
+            }
+            grouped[s.new_date].push(s);
+        });
+
+        Object.keys(grouped).forEach(date => {
+            const tasks = grouped[date];
+            html += `
+                <div style="margin-bottom: 16px;">
+                    <div style="font-size: 13px; font-weight: 500; color: #5F5E5A; margin-bottom: 8px;">
+                        ${formatDate(date)} (${tasks.length} task${tasks.length !== 1 ? 's' : ''})
+                    </div>
+            `;
+
+            tasks.forEach(t => {
+                const task = allTasks.find(task => task.id === t.task_id);
+                if (task) {
+                    html += `
+                        <div style="font-size: 12px; color: #888780; margin-left: 12px; margin-bottom: 4px;">
+                            • ${task.title.substring(0, 40)}${task.title.length > 40 ? '...' : ''}
+                            <br><span style="font-size: 11px; color: #B4B2A9;">${t.reason}</span>
+                        </div>
+                    `;
+                }
+            });
+
+            html += `</div>`;
+        });
+
+        document.getElementById('reschedule-suggestions').innerHTML = html;
+        document.getElementById('reschedule-modal').style.display = 'flex';
+
+    } catch (error) {
+        console.error('Error loading reschedule suggestions:', error);
+        showToast('Failed to load suggestions');
+    }
+}
+
+// ✅ NEW FUNCTION: Close reschedule modal
+function closeRescheduleModal() {
+    document.getElementById('reschedule-modal').style.display = 'none';
+    rescheduleSuggestions = null;
+}
+
+// ✅ NEW FUNCTION: Apply reschedule suggestions
+async function applyReschedule() {
+    if (!rescheduleSuggestions || rescheduleSuggestions.length === 0) {
+        showToast('No suggestions to apply');
+        return;
+    }
+
+    try {
+        let successCount = 0;
+        for (const suggestion of rescheduleSuggestions) {
+            const response = await fetch(`/api/tasks/${suggestion.task_id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ due_date: suggestion.new_date })
+            });
+
+            if (response.ok) {
+                successCount++;
             }
         }
+
+        closeRescheduleModal();
+        showToast(`✓ Rescheduled ${successCount} tasks`);
+        loadTasks(); // Reload to show updated dates
+
     } catch (error) {
-        console.error('Error loading reflection:', error);
+        console.error('Error applying reschedule:', error);
+        showToast('Failed to reschedule tasks');
     }
 }
 
@@ -130,7 +285,7 @@ function renderTasks() {
         t.status === 'Complete' || t.status === 'Dropped'
     );
 
-    // ✅ NEW: Sort by priority
+    // Sort by priority
     overdueTasks = sortTasksByPriority(overdueTasks);
     todayTasks = sortTasksByPriority(todayTasks);
     upcomingTasks = sortTasksByPriority(upcomingTasks);
@@ -154,7 +309,21 @@ function renderTasks() {
         (currentFilter === 'upcoming' && upcomingTasks.length > 0) ||
         (currentFilter === 'done' && doneTasks.length > 0);
 
-    document.getElementById('empty-state').style.display = hasVisibleTasks ? 'none' : 'block';
+    // ✅ Context-aware empty messages
+    const emptyMessages = {
+        'overdue': '🎉 All caught up! No overdue tasks.',
+        'today': '☀️ Nothing due today. Enjoy your day!',
+        'upcoming': '📅 No upcoming tasks scheduled.',
+        'done': '🏁 No completed tasks yet. Get started!'
+    };
+
+    const emptyElement = document.getElementById('empty-state');
+    if (hasVisibleTasks) {
+        emptyElement.style.display = 'none';
+    } else {
+        emptyElement.innerHTML = `<p>${emptyMessages[currentFilter]}</p>`;
+        emptyElement.style.display = 'block';
+    }
 }
 
 // Render a task section
@@ -178,7 +347,7 @@ function createTaskCard(task, number) {
     let badgeClass = 'badge-upcoming';
     let badgeText = task.due_date ? formatDate(task.due_date) : '';
 
-    // ✅ UPDATED: Only show overdue for pending tasks (not completed)
+    // Only show overdue for pending tasks
     if (task.status !== 'Complete' && task.status !== 'Dropped') {
         if (task.due_date && task.due_date < today) {
             badgeClass = 'badge-overdue';
@@ -189,7 +358,7 @@ function createTaskCard(task, number) {
             badgeText = 'Due today';
         }
     } else {
-        // For completed tasks, just show the date without "overdue"
+        // For completed tasks, just show the date
         if (task.due_date) {
             badgeText = formatDate(task.due_date);
             badgeClass = 'badge-upcoming';
@@ -198,7 +367,7 @@ function createTaskCard(task, number) {
 
     const titleClass = (task.due_date && task.due_date < today && task.status !== 'Complete' && task.status !== 'Dropped') ? 'task-title overdue' : 'task-title';
 
-    // ✅ UPDATED: Added checkbox
+    // With checkbox
     div.innerHTML = `
         <div class="task-header">
             <span class="task-num">${number}.</span>
@@ -289,22 +458,13 @@ async function sendChat() {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: message,
-                current_filter: currentFilter
-            })
+            body: JSON.stringify({ message })
         });
 
         const data = await response.json();
 
         if (data.type === 'task_created') {
-            const titlePreview = data.task.title.length > 40
-                ? data.task.title.substring(0, 40) + '...'
-                : data.task.title;
-            showToast('✓ Created: ' + titlePreview);
-            loadTasks();
-        } else if (data.type === 'task_updated') {
-            showToast(data.message);
+            showToast('Task created: ' + data.task.title);
             loadTasks();
         } else if (data.type === 'filter') {
             filterTasks(data.filter);
@@ -325,18 +485,20 @@ let currentLang = 'en-IN';  // Default: Indian English
 
 function toggleVoiceLanguage() {
     const langBtn = document.querySelector('.conv-bar button[onclick="toggleVoiceLanguage()"]');
+    const chatInput = document.getElementById('chat-input');
 
     if (currentLang === 'en-IN') {
-        currentLang = 'hi-IN';  // Switch to Hindi
+        currentLang = 'hi-IN';
         langBtn.textContent = '🇮🇳 HI';
-        showToast('Voice language: Hindi');
+        chatInput.placeholder = 'कुछ भी पूछें या आदेश दें...';
+        showToast('भाषा: हिंदी');
     } else {
-        currentLang = 'en-IN';  // Switch to English
+        currentLang = 'en-IN';
         langBtn.textContent = '🇮🇳 EN';
-        showToast('Voice language: English');
+        chatInput.placeholder = 'Ask or command anything...';
+        showToast('Language: English');
     }
 
-    // Reset recognition with new language
     if (recognition) {
         recognition.lang = currentLang;
     }
@@ -361,8 +523,7 @@ function startVoice() {
             isListening = true;
             const voiceBtn = document.querySelector('.voice-btn');
             if (voiceBtn) {
-                voiceBtn.style.background = '#E24B4A';
-                voiceBtn.style.animation = 'none';
+                voiceBtn.classList.add('listening'); // ✅ CHANGED: add class for pulsing animation
             }
             showToast('Listening... Speak now');
         };
@@ -372,7 +533,6 @@ function startVoice() {
             document.getElementById('chat-input').value = transcript;
             showToast(`Heard: "${transcript}"`);
 
-            // Auto-send after 1 second
             setTimeout(() => {
                 sendChat();
             }, 1000);
@@ -395,10 +555,8 @@ function startVoice() {
         };
     }
 
-    // Update language before starting
     recognition.lang = currentLang;
 
-    // Toggle listening
     if (isListening) {
         recognition.stop();
         resetVoiceButton();
@@ -417,8 +575,7 @@ function resetVoiceButton() {
     isListening = false;
     const voiceBtn = document.querySelector('.voice-btn');
     if (voiceBtn) {
-        voiceBtn.style.background = '';
-        voiceBtn.style.animation = 'voicePulse 2.5s ease-in-out infinite';
+        voiceBtn.classList.remove('listening'); // ✅ CHANGED: remove class to stop pulsing
     }
 }
 
@@ -434,8 +591,7 @@ function openAddModal() {
     document.getElementById('task-priority').checked = false;
     document.getElementById('task-remarks').value = '';
     document.getElementById('delete-btn').style.display = 'none';
-    document.getElementById('breakdown-btn').style.display = 'none';
-    document.getElementById('stuck-btn').style.display = 'none';
+    // ✅ REMOVED: breakdown-btn and stuck-btn references (buttons don't exist in updated HTML)
     document.getElementById('task-modal').style.display = 'flex';
 }
 
@@ -453,18 +609,7 @@ function editTask(taskId) {
     document.getElementById('task-priority').checked = task.priority;
     document.getElementById('task-remarks').value = task.remarks || '';
     document.getElementById('delete-btn').style.display = 'block';
-    document.getElementById('breakdown-btn').style.display = 'inline-block';
-
-    // Show stuck help button if task is old
-    const today = new Date();
-    const created = new Date(task.created_at);
-    const daysOld = Math.floor((today - created) / (1000 * 60 * 60 * 24));
-    if (daysOld >= 5 && task.status !== 'Complete') {
-        document.getElementById('stuck-btn').style.display = 'inline-block';
-    } else {
-        document.getElementById('stuck-btn').style.display = 'none';
-    }
-
+    // ✅ REMOVED: No longer showing breakdown-btn or stuck-btn
     document.getElementById('task-modal').style.display = 'flex';
 }
 
@@ -510,8 +655,7 @@ async function saveTask() {
         if (response.ok) {
             showToast(taskId ? 'Task updated' : 'Task created');
             closeModal();
-            loadTasks();
-            loadSmartBriefing();  // Refresh briefing
+            loadTasks(); // ✅ CHANGED: loadSmartBriefing() now called inside loadTasks()
         } else {
             showToast('Failed to save task');
         }
@@ -531,8 +675,7 @@ async function deleteTask() {
         if (response.ok) {
             showToast('Task deleted');
             closeModal();
-            loadTasks();
-            loadSmartBriefing();  // Refresh briefing
+            loadTasks(); // ✅ CHANGED: loadSmartBriefing() now called inside loadTasks()
         } else {
             showToast('Failed to delete task');
         }
@@ -542,100 +685,8 @@ async function deleteTask() {
     }
 }
 
-// AI Feature: Task Decomposition
-async function breakdownTask() {
-    const taskTitle = document.getElementById('task-title').value.trim();
-
-    if (!taskTitle) {
-        showToast('Please enter a task title first');
-        return;
-    }
-
-    const btn = document.getElementById('breakdown-btn');
-    const originalText = btn.textContent;
-    btn.textContent = '⏳ Breaking down...';
-    btn.disabled = true;
-
-    try {
-        const response = await fetch('/api/breakdown', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task_title: taskTitle })
-        });
-
-        const data = await response.json();
-
-        if (data.subtasks && data.subtasks.length > 0) {
-            const subtasksText = data.subtasks.map((st, i) => `${i + 1}. ${st}`).join('\n');
-            const currentRemarks = document.getElementById('task-remarks').value;
-            document.getElementById('task-remarks').value =
-                `Subtasks:\n${subtasksText}\n\n${currentRemarks}`;
-
-            showToast(`Broke down into ${data.subtasks.length} subtasks!`);
-        } else {
-            showToast('Could not break down task');
-        }
-    } catch (error) {
-        console.error('Error breaking down task:', error);
-        showToast('Failed to break down task');
-    } finally {
-        btn.textContent = originalText;
-        btn.disabled = false;
-    }
-}
-
-// AI Feature: Stuck Task Coaching
-async function getStuckHelp() {
-    const taskId = document.getElementById('edit-task-id').value;
-    const taskTitle = document.getElementById('task-title').value.trim();
-
-    if (!taskTitle) {
-        showToast('Please enter a task title first');
-        return;
-    }
-
-    const task = allTasks.find(t => t.id == taskId);
-    const daysStuck = task ? Math.floor((new Date() - new Date(task.created_at)) / (1000 * 60 * 60 * 24)) : 5;
-
-    const btn = document.getElementById('stuck-btn');
-    const originalText = btn.textContent;
-    btn.textContent = '⏳ Getting help...';
-    btn.disabled = true;
-
-    try {
-        const response = await fetch('/api/stuck-help', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task_title: taskTitle, days_stuck: daysStuck })
-        });
-
-        const data = await response.json();
-
-        if (data.suggestions && data.suggestions.length > 0) {
-            let helpText = `💡 AI Coaching (stuck for ${daysStuck} days):\n\n`;
-            data.suggestions.forEach((s, i) => {
-                helpText += `${i + 1}. ${s}\n`;
-            });
-            if (data.encouragement) {
-                helpText += `\n${data.encouragement}`;
-            }
-
-            const currentRemarks = document.getElementById('task-remarks').value;
-            document.getElementById('task-remarks').value =
-                `${helpText}\n\n${currentRemarks}`;
-
-            showToast('AI coaching added to notes!');
-        } else {
-            showToast('Could not generate coaching');
-        }
-    } catch (error) {
-        console.error('Error getting stuck help:', error);
-        showToast('Failed to get coaching');
-    } finally {
-        btn.textContent = originalText;
-        btn.disabled = false;
-    }
-}
+// ✅ REMOVED FUNCTION: breakdownTask() - AI feature removed
+// ✅ REMOVED FUNCTION: getStuckHelp() - AI feature removed
 
 // Utility functions
 function showToast(message) {
@@ -666,21 +717,40 @@ function escapeHtml(text) {
 }
 
 // ============================================
-// ✅ NEW FUNCTIONS - Added for new features
+// NEW FUNCTIONS - Added for new features
 // ============================================
 
-// Language selection for voice (used by dashboard.html)
+// Language selection for voice
 function selectLanguage(lang) {
+    const chatInput = document.getElementById('chat-input');
+    const smartPills = document.querySelectorAll('.smart-pills button');
+    
     if (lang === 'en') {
         currentLang = 'en-IN';
         document.getElementById('lang-en').classList.add('active');
         document.getElementById('lang-hi').classList.remove('active');
-        showToast('Voice language: English');
+        
+        // ✅ Update UI to English
+        chatInput.placeholder = "'mark task 2 done' or 'buy milk tomorrow'";
+        if (smartPills.length >= 4) {
+            smartPills[0].textContent = 'Today';
+            smartPills[1].textContent = 'Tomorrow';
+            smartPills[3].textContent = '+2d';
+        }
+        showToast('Language: English');
     } else {
         currentLang = 'hi-IN';
         document.getElementById('lang-hi').classList.add('active');
         document.getElementById('lang-en').classList.remove('active');
-        showToast('Voice language: Hindi');
+        
+        // ✅ Update UI to Hindi
+        chatInput.placeholder = "कल घर का सामान खरीदना है";
+        if (smartPills.length >= 4) {
+            smartPills[0].textContent = 'आज';
+            smartPills[1].textContent = 'कल';
+            smartPills[3].textContent = '+2दिन';
+        }
+        showToast('भाषा: हिंदी');
     }
 
     if (recognition) {
@@ -688,12 +758,12 @@ function selectLanguage(lang) {
     }
 }
 
-// Smart Pills Handler with Date Conflict Check
+// Smart Pills Handler
 function addQuickDate(type) {
     const input = document.getElementById('chat-input');
     let text = input.value.trim().toLowerCase();
 
-    // Check if date already exists in input
+    // Check if date already exists
     const dateKeywords = [
         'today', 'tomorrow',
         'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
@@ -709,7 +779,7 @@ function addQuickDate(type) {
         return;
     }
 
-    // No date in input - ADD from pill
+    // Add date from pill
     if (type === 'today') {
         input.value = input.value.trim() + ' today';
     } else if (type === 'tomorrow') {
@@ -720,7 +790,6 @@ function addQuickDate(type) {
         input.value = input.value.trim() + ' in 2 days';
     }
 
-    // Auto-submit
     sendChat();
 }
 
@@ -736,7 +805,6 @@ async function completeTaskQuick(taskId) {
         if (response.ok) {
             showToast('✓ Task completed');
             loadTasks();
-            loadSmartBriefing();
         } else {
             showToast('Failed to complete task');
         }
@@ -746,26 +814,21 @@ async function completeTaskQuick(taskId) {
     }
 }
 
-// Sort tasks by priority first, then date, then ID
+// Sort tasks by priority
 function sortTasksByPriority(tasks) {
     return tasks.sort((a, b) => {
-        // Priority first (true = 1, false = 0, so b - a puts true first)
         if (a.priority !== b.priority) {
             return b.priority - a.priority;
         }
-        // Then by due date (oldest first)
         if (a.due_date && b.due_date) {
             const dateCompare = new Date(a.due_date) - new Date(b.due_date);
             if (dateCompare !== 0) {
                 return dateCompare;
             }
-            // ✅ FIX: If same priority AND same date, sort by ID
             return a.id - b.id;
         }
-        // Tasks with dates come before tasks without
         if (a.due_date) return -1;
         if (b.due_date) return 1;
-        // ✅ FIX: Both without dates, sort by ID
         return a.id - b.id;
     });
 }

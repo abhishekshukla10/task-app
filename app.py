@@ -2,6 +2,7 @@ from ai_routes import ai_bp
 from routes.chat import chat_bp
 from routes.tasks import tasks_bp
 from routes.auth import auth_bp
+from routes.smart_schedule import smart_schedule_bp  # ✅ NEW: Smart reschedule
 from flask import Flask, redirect, url_for
 from flask_login import LoginManager
 from models import db, User
@@ -33,6 +34,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(tasks_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(ai_bp)
+app.register_blueprint(smart_schedule_bp)  # ✅ NEW: Register smart schedule
 
 # Root route
 

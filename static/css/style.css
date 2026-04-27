@@ -803,3 +803,69 @@ textarea {
         padding: 10px;
     }
 }
+
+/* ============================================
+   SMART RESCHEDULE STYLES
+   ============================================ */
+
+/* Smart Reschedule Inline Hint */
+.reschedule-hint {
+    background: #E6F1FB;
+    border: 1px solid #378ADD;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.reschedule-hint-text {
+    color: #0C447C;
+    margin-bottom: 6px;
+}
+
+.reschedule-btn {
+    width: 100%;
+    padding: 8px;
+    background: #FFFFFF;
+    color: #0C447C;
+    border: 1px solid #378ADD;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.reschedule-btn:hover {
+    background: #E6F1FB;
+}
+
+/* Voice Button Listening State */
+.voice-btn.listening {
+    background: #E24B4A !important;
+    animation: pulseListen 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseListen {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% { 
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+    .reschedule-hint {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+    
+    .reschedule-btn {
+        font-size: 12px;
+        padding: 7px;
+    }
+}
